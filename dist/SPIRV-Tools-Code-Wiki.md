@@ -21,8 +21,10 @@
 5. [公共 API 接口](#5-公共-api-接口)
 6. [命令行工具](#6-命令行工具)
 7. [模块间依赖关系](#7-模块间依赖关系)
-8. [项目运行方式](#8-项目运行方式)
-9. [测试体系](#9-测试体系)
+8. [预编译工具下载](#8-预编译工具下载)
+9. [输入文件获取方式](#9-输入文件获取方式)
+10. [详细测试使用说明](#10-详细测试使用说明)
+11. [macOS 编译指南](#11-macos-编译指南)
 
 ---
 
@@ -196,790 +198,89 @@ spirv-tools/
 | `spirv_endian.cpp/h` | 字节序处理 |
 | `spirv_target_env.cpp/h` | 目标环境（Vulkan/OpenCL 等）支持 |
 | `table.cpp/h` | SPIR-V 指令语法查找表 |
-| `table2.cpp/h` | 第二代语法查找表 |
 | `name_mapper.cpp/h` | ID 到名称的映射 |
-| `print.cpp/h` | SPIR-V 打印/格式化 |
-| `to_string.cpp/h` | 枚举值到字符串转换 |
 | `cfa.h` | 控制流分析算法 |
 | `enum_set.h` | 枚举集合模板 |
-| `instruction.h` | 核心指令结构定义 |
-| `macro.h` | 预处理器宏 |
 
 #### 关键函数 (C API)
 
 ```c
-// 汇编: 文本 -> 二进制
 spv_result_t spvTextToBinary(spv_const_context, const char* text,
                               size_t length, spv_binary* binary,
                               spv_diagnostic* diagnostic);
 
-// 反汇编: 二进制 -> 文本
 spv_result_t spvBinaryToText(spv_const_context, const uint32_t* binary,
                               size_t word_count, uint32_t options,
                               spv_text* text, spv_diagnostic* diagnostic);
 
-// 二进制解析 (回调式)
 spv_result_t spvBinaryParse(spv_const_context, void* user_data,
                              const uint32_t* words, size_t num_words,
                              spv_parsed_header_fn_t,
                              spv_parsed_instruction_fn_t,
                              spv_diagnostic* diagnostic);
 
-// 验证
 spv_result_t spvValidate(spv_const_context, spv_const_binary,
                           spv_diagnostic* diagnostic);
-spv_result_t spvValidateWithOptions(spv_const_context,
-                                     spv_const_validator_options,
-                                     spv_const_binary,
-                                     spv_diagnostic* diagnostic);
-```
-
-#### 关键数据结构
-
-```c
-// SPIR-V 解析后的指令
-typedef struct spv_parsed_instruction_t {
-    const uint32_t* words;         // 指令字数组
-    uint16_t num_words;            // 字数
-    uint16_t opcode;               // 操作码
-    spv_ext_inst_type_t ext_inst_type;  // 扩展指令类型
-    uint32_t type_id;              // 类型 ID
-    uint32_t result_id;            // 结果 ID
-    const spv_parsed_operand_t* operands;  // 操作数数组
-    uint16_t num_operands;         // 操作数数量
-} spv_parsed_instruction_t;
-
-// 结果状态码
-typedef enum spv_result_t {
-    SPV_SUCCESS = 0,
-    SPV_UNSUPPORTED = 1,
-    SPV_ERROR_INVALID_BINARY = -4,
-    SPV_ERROR_INVALID_TEXT = -5,
-    SPV_ERROR_INVALID_CFG = -11,
-    // ...
-} spv_result_t;
 ```
 
 ---
 
 ### 4.2 优化器模块 (source/opt/)
 
-优化器是 SPIRV-Tools 中最大的模块，包含 70+ 个优化 Pass，用于对 SPIR-V 模块进行各种代码变换和优化。
+优化器是 SPIRV-Tools 中最大的模块，包含 70+ 个优化 Pass。
 
-#### 核心类层次
+#### 核心类
 
-```
-Pass (基类)
-├── PassToken::Impl (包装器)
-├── AggressiveDCEPass
-├── BlockMergePass
-├── CCPass
-├── CFGCleanupPass
-├── CodeSinkingPass
-├── CombineAccessChainsPass
-├── CompactIdsPass
-├── ConvertToHalfPass
-├── CopyPropagateArraysPass
-├── DeadBranchElimPass
-├── DeadInsertElimPass
-├── DeadVariableEliminationPass
-├── EliminateDeadConstantPass
-├── EliminateDeadFunctionsPass
-├── EliminateDeadMembersPass
-├── FlattenDecorationPass
-├── FoldSpecConstantOpAndCompositePass
-├── FreezeSpecConstantValuePass
-├── GraphicsRobustAccessPass
-├── IfConversionPass
-├── InlineExhaustivePass
-├── InlineOpaquePass
-├── LICMPass
-├── LocalAccessChainConvertPass
-├── LocalMultiStoreElimPass
-├── LocalRedundancyEliminationPass
-├── LocalSingleBlockElimPass
-├── LocalSingleStoreElimPass
-├── LoopFissionPass
-├── LoopFusionPass
-├── LoopPeelingPass
-├── LoopUnrollerPass
-├── LoopUnswitchPass
-├── MergeReturnPass
-├── PrivateToLocalPass
-├── RedundancyEliminationPass
-├── ScalarReplacementPass
-├── SimplificationPass
-├── StrengthReductionPass
-├── StripDebugInfoPass
-├── StripNonSemanticInfoPass
-├── SSARewritePass
-├── UnifyConstantPass
-├── VectorDCEPass
-├── ... (更多)
-└── NullPass / EmptyPass
-```
+| 类 | 描述 |
+|----|------|
+| `IRContext` | IR 上下文，持有模块和分析结果 |
+| `Module` | SPIR-V 模块结构 |
+| `Function` | SPIR-V 函数 |
+| `BasicBlock` | 基本块 |
+| `Instruction` | 指令 |
+| `Pass` | 优化 Pass 基类 |
+| `PassManager` | Pass 管理器 |
+| `CFG` | 控制流图 |
+| `DefUseManager` | 定义-使用管理器 |
+| `DecorationManager` | 装饰管理器 |
+| `TypeManager` | 类型管理器 |
+| `FeatureManager` | 特性管理器 |
 
-#### 关键核心类
+#### 优化 Pass 分类
 
-##### `IRContext` — IR 上下文
+**简化类**: StripDebugInfoPass, StripNonSemanticInfoPass, FlattenDecorationPass, CompactIdsPass, RemoveDuplicatesPass, CFGCleanupPass
 
-IRContext 是优化器的核心容器，持有 SPIR-V 模块的所有信息和分析结果。
+**代码缩减类**: InlineExhaustivePass, LocalAccessChainConvertPass, LocalSingleBlockElimPass, LocalSingleStoreElimPass, LocalMultiStoreElimPass, AggressiveDCEPass, DeadBranchElimPass, BlockMergePass, EliminateDeadFunctionsPass, MergeReturnPass, SSARewritePass
 
-```cpp
-class IRContext {
-public:
-    // 构造与模块管理
-    IRContext(spv_target_env env, MessageConsumer consumer);
-    Module* module();                    // 获取模块
-    std::unique_ptr<Module> CloneModule(); // 克隆模块
+**代码改进类**: CCPass, IfConversionPass, LICMPass, LoopFissionPass, LoopFusionPass, LoopUnrollPass, SimplificationPass, StrengthReductionPass, ScalarReplacementPass, RedundancyEliminationPass, CopyPropagateArraysPass
 
-    // 分析管理器访问
-    DefUseManager* get_def_use_mgr();    // 定义-使用管理器
-    DecorationManager* get_decoration_mgr(); // 装饰管理器
-    TypeManager* get_type_mgr();         // 类型管理器
-    FeatureManager* get_feature_mgr();   // 特性管理器
-    CFG* cfg();                          // 控制流图
-    DominatorAnalysis* GetDominatorAnalysis(const Function*); // 支配树
-    LoopDescriptor* GetLoopDescriptor(const Function*);       // 循环描述
-
-    // 构建与修改
-    bool BuildIdToNameMap();             // 构建 ID->名称映射
-    void BuildInvalidAnalyses(IRContext::Analysis); // 重建分析
-    void InvalidateAnalysesExceptFor(IRContext::Analysis); // 使分析失效
-
-    // 指令操作
-    uint32_t TakeNextId();               // 获取下一个可用 ID
-    bool IsConsistent();                 // 检查上下文一致性
-};
-```
-
-##### `Module` — SPIR-V 模块
-
-```cpp
-class Module {
-public:
-    // 遍历指令
-    InstructionList& types_values();     // 类型/常量/全局变量
-    std::list<Function>& functions();    // 函数列表
-
-    // 模块级指令
-    Instruction* GetMemoryModel();       // 内存模型
-    std::vector<Instruction*>& entry_points(); // 入口点
-
-    // ID 管理
-    uint32_t IdBound();                  // ID 上限
-    void SetIdBound(uint32_t);           // 设置 ID 上限
-};
-```
-
-##### `Function` — SPIR-V 函数
-
-```cpp
-class Function {
-public:
-    // 基本块访问
-    std::list<BasicBlock>& blocks();     // 基本块列表
-    BasicBlock* entry();                 // 入口基本块
-
-    // 参数与返回值
-    uint32_t result_id();                // 函数结果 ID
-    uint32_t GetReturnTypeId();          // 返回类型 ID
-
-    // 指令遍历
-    iterator begin();                    // 遍历所有指令
-    iterator end();
-};
-```
-
-##### `BasicBlock` — 基本块
-
-```cpp
-class BasicBlock {
-public:
-    uint32_t id();                       // 基本块 ID (标签)
-    InstructionList& instructions();     // 指令列表
-    bool IsLoopHeader();                 // 是否为循环头
-    BasicBlock* GetMergeInst();          // 获取合并指令
-};
-```
-
-##### `Instruction` — 指令
-
-```cpp
-class Instruction {
-public:
-    SpvOp opcode();                      // 操作码
-    uint32_t type_id();                  // 类型 ID
-    uint32_t result_id();                // 结果 ID
-    uint32_t GetSingleWordOperand(uint32_t index); // 获取操作数
-    void SetOperand(uint32_t index, std::vector<uint32_t>&& operands); // 设置操作数
-
-    // 遍历
-    iterator begin();                    // 遍历操作数
-    iterator end();
-
-    // 修改
-    void InsertBefore(std::unique_ptr<Instruction>&&); // 在此指令前插入
-    void RemoveFromList();               // 从列表移除
-};
-```
-
-##### `Pass` — 优化 Pass 基类
-
-```cpp
-class Pass {
-public:
-    virtual ~Pass() = default;
-
-    // 执行优化，返回模块是否被修改
-    virtual Status Process() = 0;
-
-    // Pass 名称
-    virtual const char* name() const = 0;
-
-    // 上下文访问
-    IRContext* context();                // 获取 IR 上下文
-    void SetMessageConsumer(MessageConsumer); // 设置消息消费者
-};
-```
-
-##### `PassManager` — Pass 管理器
-
-```cpp
-class PassManager {
-public:
-    void AddPass(std::unique_ptr<Pass> pass); // 添加 Pass
-    uint32_t NumPasses();                       // Pass 数量
-    Pass* GetPass(uint32_t index);              // 获取 Pass
-    Status Run(IRContext* context);             // 运行所有 Pass
-    void SetMessageConsumer(MessageConsumer);   // 设置消息消费者
-};
-```
-
-##### `CFG` — 控制流图
-
-```cpp
-class CFG {
-public:
-    CFG(IRContext* context);
-    void AddEdges(BasicBlock* block);    // 添加基本块边
-    std::vector<BasicBlock*> preds(BasicBlock* block);  // 前驱
-    std::vector<BasicBlock*> succs(BasicBlock* block);  // 后继
-};
-```
-
-##### `DefUseManager` — 定义-使用管理器
-
-```cpp
-class DefUseManager {
-public:
-    Instruction* GetDef(uint32_t id);    // 获取 ID 的定义指令
-    const std::vector<Instruction*>& GetUses(uint32_t id); // 获取 ID 的使用
-    void AnalyzeInstDef(Instruction* inst);  // 分析指令定义
-    void AnalyzeInstUse(Instruction* inst);  // 分析指令使用
-};
-```
-
-##### `TypeManager` — 类型管理器
-
-```cpp
-class TypeManager {
-public:
-    Instruction* GetType(uint32_t id);   // 通过 ID 获取类型
-    uint32_t GetId(const Type* type);    // 通过类型获取 ID
-    bool IsSameType(uint32_t id1, uint32_t id2); // 类型比较
-};
-```
-
-##### `DecorationManager` — 装饰管理器
-
-```cpp
-class DecorationManager {
-public:
-    std::vector<Instruction*> GetDecorationsFor(uint32_t id, bool include_groups = true);
-    bool HasDecoration(uint32_t id, SpvDecoration decoration);
-    void AddDecoration(uint32_t target, SpvDecoration decoration, ...);
-};
-```
-
-##### `FeatureManager` — 特性管理器
-
-```cpp
-class FeatureManager {
-public:
-    bool HasCapability(SpvCapability cap);  // 检查能力
-    bool HasExtension(Extension ext);       // 检查扩展
-    bool IsCapabilityEnabled(SpvCapability cap);
-};
-```
-
-#### 优化 Pass 完整列表
-
-##### 简化类 Pass
-
-| Pass | 创建函数 | 描述 |
-|------|----------|------|
-| StripDebugInfoPass | `CreateStripDebugInfoPass()` | 移除所有调试指令 |
-| StripNonSemanticInfoPass | `CreateStripNonSemanticInfoPass()` | 移除非语义信息 |
-| FlattenDecorationPass | `CreateFlattenDecorationPass()` | 将分组装饰替换为等价的非分组装饰 |
-| CompactIdsPass | `CreateCompactIdsPass()` | 将 ID 重新映射为紧凑连续范围 |
-| CanonicalizeIdsPass | `CreateCanonicalizeIdsPass()` | 规范化 ID 以改善压缩 |
-| RemoveDuplicatesPass | `CreateRemoveDuplicatesPass()` | 移除重复的能力/导入/类型/装饰 |
-| CFGCleanupPass | `CreateCFGCleanupPass()` | 清理控制流图中的冗余 |
-
-##### 专业化常量类 Pass
-
-| Pass | 创建函数 | 描述 |
-|------|----------|------|
-| SetSpecConstantDefaultValuePass | `CreateSetSpecConstantDefaultValuePass()` | 设置专业化常量默认值 |
-| FreezeSpecConstantValuePass | `CreateFreezeSpecConstantValuePass()` | 冻结专业化常量为其默认值 |
-| FoldSpecConstantOpAndCompositePass | `CreateFoldSpecConstantOpAndCompositePass()` | 折叠 OpSpecConstantOp/Composite |
-| UnifyConstantPass | `CreateUnifyConstantPass()` | 去重常量 |
-| EliminateDeadConstantPass | `CreateEliminateDeadConstantPass()` | 移除死常量 |
-
-##### 代码缩减类 Pass
-
-| Pass | 创建函数 | 描述 |
-|------|----------|------|
-| InlineExhaustivePass | `CreateInlineExhaustivePass()` | 穷举内联所有函数调用 |
-| InlineOpaquePass | `CreateInlineOpaquePass()` | 内联含不透明类型的函数 |
-| LocalAccessChainConvertPass | `CreateLocalAccessChainConvertPass()` | 将局部访问链转换为插入/提取 |
-| LocalSingleBlockElimPass | `CreateLocalSingleBlockLoadStoreElimPass()` | 单块内局部变量加载/存储消除 |
-| LocalSingleStoreElimPass | `CreateLocalSingleStoreElimPass()` | 单存储局部变量消除 |
-| LocalMultiStoreElimPass | `CreateLocalMultiStoreElimPass()` | 多存储局部变量 SSA 消除 |
-| InsertExtractElimPass | `CreateInsertExtractElimPass()` | 插入/提取消除 |
-| DeadInsertElimPass | `CreateDeadInsertElimPass()` | 死插入消除 |
-| AggressiveDCEPass | `CreateAggressiveDCEPass()` | 激进死代码消除 |
-| DeadBranchElimPass | `CreateDeadBranchElimPass()` | 死分支消除 |
-| BlockMergePass | `CreateBlockMergePass()` | 合并单前驱/单后继基本块 |
-| EliminateDeadFunctionsPass | `CreateEliminateDeadFunctionsPass()` | 移除死函数 |
-| EliminateDeadMembersPass | `CreateEliminateDeadMembersPass()` | 移除未使用的结构体成员 |
-| DeadVariableEliminationPass | `CreateDeadVariableEliminationPass()` | 移除未引用的模块级变量 |
-| MergeReturnPass | `CreateMergeReturnPass()` | 将多返回合并为单返回 |
-| SSARewritePass | `CreateSSARewritePass()` | 将局部变量转换为 SSA 形式 |
-
-##### 代码改进类 Pass
-
-| Pass | 创建函数 | 描述 |
-|------|----------|------|
-| CCPass | `CreateCCPPass()` | 条件常量传播 |
-| IfConversionPass | `CreateIfConversionPass()` | if-then-else 转换为 OpSelect |
-| LICMPass | `CreateLoopInvariantCodeMotionPass()` | 循环不变代码外提 |
-| LoopFissionPass | `CreateLoopFissionPass(threshold)` | 循环分裂 |
-| LoopFusionPass | `CreateLoopFusionPass(max_registers)` | 循环融合 |
-| LoopPeelingPass | `CreateLoopPeelingPass()` | 循环剥离 |
-| LoopUnswitchPass | `CreateLoopUnswitchPass()` | 循环开关外提 |
-| LoopUnrollPass | `CreateLoopUnrollPass(fully, factor)` | 循环展开 |
-| SimplificationPass | `CreateSimplificationPass()` | 指令简化 |
-| StrengthReductionPass | `CreateStrengthReductionPass()` | 强度削减 |
-| ScalarReplacementPass | `CreateScalarReplacementPass(limit)` | 标量替换 |
-| PrivateToLocalPass | `CreatePrivateToLocalPass()` | 私有变量转局部变量 |
-| RedundancyEliminationPass | `CreateRedundancyEliminationPass()` | 全局值编号冗余消除 |
-| LocalRedundancyEliminationPass | `CreateLocalRedundancyEliminationPass()` | 局部值编号冗余消除 |
-| CopyPropagateArraysPass | `CreateCopyPropagateArraysPass()` | 数组拷贝传播 |
-| VectorDCEPass | `CreateVectorDCEPass()` | 向量死代码消除 |
-| ReduceLoadSizePass | `CreateReduceLoadSizePass(threshold)` | 减小加载大小 |
-| CodeSinkingPass | `CreateCodeSinkingPass()` | 代码下沉 |
-
-##### 规范化/兼容类 Pass
-
-| Pass | 创建函数 | 描述 |
-|------|----------|------|
-| ConvertToHalfPass | `CreateConvertRelaxedToHalfPass()` | 转换为半精度 |
-| RelaxFloatOpsPass | `CreateRelaxFloatOpsPass()` | 标记浮点操作为 RelaxedPrecision |
-| FixStorageClassPass | `CreateFixStorageClassPass()` | 修复存储类不匹配 |
-| ReplaceInvalidOpcodePass | `CreateReplaceInvalidOpcodePass()` | 替换无效操作码 |
-| UpgradeMemoryModelPass | `CreateUpgradeMemoryModelPass()` | 升级内存模型到 VulkanKHR |
-| AmdExtToKhrPass | `CreateAmdExtToKhrPass()` | AMD 扩展转 KHR |
-| InterpolateFixupPass | `CreateInterpolateFixupPass()` | 修复插值指令 |
-| GraphicsRobustAccessPass | `CreateGraphicsRobustAccessPass()` | 注入缓冲区边界检查 |
-| Workaround1209Pass | `CreateWorkaround1209Pass()` | 驱动 bug 规避 |
-| WrapOpKillPass | `CreateWrapOpKillPass()` | 包装 OpKill 为函数调用 |
-| CombineAccessChainsPass | `CreateCombineAccessChainsPass()` | 合并链式访问链 |
-| SpreadVolatileSemanticsPass | `CreateSpreadVolatileSemanticsPass()` | 传播 Volatile 语义 |
-| TrimCapabilitiesPass | `CreateTrimCapabilitiesPass()` | 裁剪未使用的能力 |
-| StructPackingPass | `CreateStructPackingPass(name, rule)` | 结构体打包 |
-| SwitchDescriptorSetPass | `CreateSwitchDescriptorSetPass(from, to)` | 切换描述符集 |
-| InvocationInterlockPlacementPass | `CreateInvocationInterlockPlacementPass()` | 插入互锁指令 |
-| ModifyMaximalReconvergencePass | `CreateModifyMaximalReconvergencePass(add)` | 添加/移除最大重汇聚 |
-| SplitCombinedImageSamplerPass | `CreateSplitCombinedImageSamplerPass()` | 拆分组合图像采样器 |
-| ResolveBindingConflictsPass | `CreateResolveBindingConflictsPass()` | 解决绑定冲突 |
-| DescriptorScalarReplacementPass | `CreateDescriptorScalarReplacementPass()` | 描述符标量替换 |
-| InterfaceVariableScalarReplacementPass | `CreateInterfaceVariableScalarReplacementPass()` | 接口变量标量替换 |
-| ReplaceDescArrayAccessUsingVarIndexPass | `CreateReplaceDescArrayAccessUsingVarIndexPass()` | 替换变量索引描述符访问 |
-| LegalizeMultidimArrayPass | `CreateLegalizeMultidimArrayPass()` | 合法化多维数组 |
-| RemoveDontInlinePass | `CreateRemoveDontInlinePass()` | 移除 DontInline 标记 |
-| FixFuncCallArgumentsPass | `CreateFixFuncCallArgumentsPass()` | 修复函数调用参数 |
-| OpExtInstForwardRefFixupPass | `CreateOpExtInstWithForwardReferenceFixupPass()` | 修复前向引用 |
-| EliminateDeadInputComponentsPass | `CreateEliminateDeadInputComponentsPass()` | 消除死输入组件 |
-| EliminateDeadOutputComponentsPass | `CreateEliminateDeadOutputComponentsPass()` | 消除死输出组件 |
-| AnalyzeLiveInputPass | `CreateAnalyzeLiveInputPass()` | 分析活跃输入 |
-| EliminateDeadOutputStoresPass | `CreateEliminateDeadOutputStoresPass()` | 消除死输出存储 |
-| ConvertToSampledImagePass | `CreateConvertToSampledImagePass()` | 转换为采样图像 |
-
-##### 预设优化配方
-
-| 配方 | 注册方法 | 描述 |
-|------|----------|------|
-| 性能优化 (`-O`) | `RegisterPerformancePasses()` | 优化执行性能 |
-| 大小优化 (`-Os`) | `RegisterSizePasses()` | 优化代码大小 |
-| 合法化 (`--legalize-hlsl`) | `RegisterLegalizationPasses()` | 合法化 HLSL 生成的 SPIR-V |
+**预设配方**: `-O` (性能), `-Os` (大小), `--legalize-hlsl` (合法化)
 
 ---
 
 ### 4.3 验证器模块 (source/val/)
 
-验证器检查 SPIR-V 模块是否符合 SPIR-V 规范中的验证规则。
-
-#### 关键类
-
-##### `ValidationState_t` — 验证状态
-
-验证过程中的全局状态，跟踪所有验证信息。
-
-```cpp
-class ValidationState_t {
-public:
-    // 模块信息
-    spv_target_env target_env();         // 目标环境
-    uint32_t id_bound();                 // ID 上限
-
-    // 指令查找
-    Instruction* FindDef(uint32_t id);   // 通过 ID 查找指令
-
-    // 函数信息
-    Function* current_function();        // 当前验证的函数
-    bool in_function_body();             // 是否在函数体内
-
-    // 诊断
-    spv_result_t diagnostic();           // 验证结果
-};
-```
-
-##### `Function` (val) — 验证用函数
-
-```cpp
-class Function {
-public:
-    uint32_t id();                       // 函数 ID
-    std::vector<BasicBlock*>& blocks();  // 基本块列表
-    std::vector<uint32_t>& parameters(); // 参数列表
-    bool IsCompatibleWithExecutionModel(SpvExecutionModel model);
-};
-```
-
-##### `BasicBlock` (val) — 验证用基本块
-
-```cpp
-class BasicBlock {
-public:
-    uint32_t id();                       // 基本块 ID
-    std::set<BasicBlock*>& predecessors();  // 前驱
-    std::set<BasicBlock*>& successors();    // 后继
-    bool reachable();                    // 是否可达
-    SpvLoopControl loop_control();       // 循环控制
-};
-```
-
-##### `Instruction` (val) — 验证用指令
-
-```cpp
-class Instruction {
-public:
-    SpvOp opcode();                      // 操作码
-    uint32_t id();                       // 结果 ID
-    uint32_t type_id();                  // 类型 ID
-    const std::vector<Operand>& operands(); // 操作数列表
-};
-```
-
-##### `Construct` — 结构化控制流构造
-
-```cpp
-class Construct {
-public:
-    ConstructType type();                // 构造类型 (Selection/Loop/Case)
-    BasicBlock* entry_block();           // 入口块
-    BasicBlock* merge_block();           // 合并块
-};
-```
-
-#### 验证分类 (validate_*.cpp)
-
-| 文件 | 验证内容 |
-|------|----------|
-| `validate_adjacency.cpp` | 指令邻接性 |
-| `validate_annotation.cpp` | 注解指令 (OpDecorate 等) |
-| `validate_arithmetics.cpp` | 算术指令 |
-| `validate_atomics.cpp` | 原子指令 |
-| `validate_barriers.cpp` | 屏障指令 |
-| `validate_bitwise.cpp` | 位运算指令 |
-| `validate_builtins.cpp` | 内建变量 |
-| `validate_capability.cpp` | 能力声明 |
-| `validate_cfg.cpp` | 控制流图 |
-| `validate_composites.cpp` | 复合类型指令 |
-| `validate_constants.cpp` | 常量指令 |
-| `validate_conversion.cpp` | 类型转换指令 |
-| `validate_debug.cpp` | 调试指令 |
-| `validate_decorations.cpp` | 装饰规则 |
-| `validate_derivatives.cpp` | 导数指令 |
-| `validate_dot_product.cpp` | 点积指令 |
-| `validate_execution_limitations.cpp` | 执行限制 |
-| `validate_extensions.cpp` | 扩展指令 |
-| `validate_function.cpp` | 函数指令 |
-| `validate_graph.cpp` | 图指令 |
-| `validate_group.cpp` | 组指令 |
-| `validate_id.cpp` | ID 使用规则 |
-| `validate_image.cpp` | 图像指令 |
-| `validate_interfaces.cpp` | 接口变量 |
-| `validate_layout.cpp` | 指令布局 |
-| `validate_literals.cpp` | 字面量 |
-| `validate_logicals.cpp` | 逻辑指令 |
-| `validate_memory.cpp` | 内存指令 |
-| `validate_mesh_shading.cpp` | 网格着色 |
-| `validate_misc.cpp` | 杂项指令 |
-| `validate_modes.cpp` | 执行模式 |
-| `validate_non_uniform.cpp` | 非统一指令 |
-| `validate_primitives.cpp` | 图元指令 |
-| `validate_ray_query.cpp` | 光线查询 |
-| `validate_ray_tracing.cpp` | 光线追踪 |
-| `validate_scopes.cpp` | 内存/作用域 |
-| `validate_small_type_uses.cpp` | 小类型使用 |
-| `validate_type.cpp` | 类型声明 |
-| `validate_type_unique.cpp` | 类型唯一性 |
-
----
+验证器检查 SPIR-V 模块是否符合规范。包含 30+ 个验证文件，覆盖：控制流、类型系统、内存操作、图像/采样、算术/位运算、函数调用、装饰/注解、光线追踪、扩展指令、内建变量、接口/布局、网格着色等。
 
 ### 4.4 链接器模块 (source/link/)
 
-链接器将多个 SPIR-V 二进制模块合并为一个模块。
-
-#### 关键文件
-
-| 文件 | 职责 |
-|------|------|
-| `linker.cpp` | 链接器核心实现 |
-| `fnvar.cpp/h` | 函数变体 (SPV_INTEL_function_variants) 支持 |
-
-#### 关键函数
-
-```cpp
-// C++ API
-spv_result_t Link(const Context& context,
-                  const std::vector<std::vector<uint32_t>>& binaries,
-                  std::vector<uint32_t>* linked_binary,
-                  const LinkerOptions& options = LinkerOptions());
-```
-
-#### `LinkerOptions` — 链接选项
-
-| 选项 | 默认值 | 说明 |
-|------|--------|------|
-| `GetCreateLibrary()` | false | 生成库(保留导出) vs 可执行文件 |
-| `GetVerifyIds()` | false | 验证合并后 ID 唯一性 |
-| `GetAllowPartialLinkage()` | false | 允许部分链接(未解析的导入) |
-| `GetUseHighestVersion()` | false | 使用最高 SPIR-V 版本 |
-| `GetAllowPtrTypeMismatch()` | false | 允许指针类型不匹配 |
-
----
+链接器将多个 SPIR-V 二进制模块合并。支持选项：CreateLibrary, VerifyIds, AllowPartialLinkage, UseHighestVersion 等。
 
 ### 4.5 模糊测试模块 (source/fuzz/)
 
-模糊测试器对 SPIR-V 二进制模块应用语义保持的变换，产生等价模块，用于发现 SPIR-V 处理工具中的 bug。
-
-#### 核心类
-
-##### `Fuzzer` — 模糊测试器主类
-
-```cpp
-class Fuzzer {
-public:
-    Fuzzer(spv_target_env env, MessageConsumer consumer,
-           std::unique_ptr<RandomGenerator> rng,
-           bool enable_all_passes, bool is_wgsl_compatible);
-
-    // 运行模糊测试
-    Status Run(const std::vector<uint32_t>& binary,
-               const spvtools::FuzzerOptions& options,
-               std::vector<uint32_t>* transformed_binary,
-               FuzzerResult* result);
-
-    // 重放变换序列
-    Status Replay(const std::vector<uint32_t>& binary,
-                  const std::vector<protobufs::Transformation>& transformations,
-                  std::vector<uint32_t>* transformed_binary);
-};
-```
-
-##### `FuzzerPass` — 模糊测试 Pass 基类
-
-```cpp
-class FuzzerPass {
-public:
-    virtual ~FuzzerPass() = default;
-    virtual void Apply() = 0;           // 应用变换
-
-    FuzzerContext* GetFuzzerContext();   // 获取模糊上下文
-    opt::IRContext* GetIRContext();      // 获取 IR 上下文
-};
-```
-
-##### `Transformation` — 变换基类
-
-```cpp
-class Transformation {
-public:
-    virtual ~Transformation() = default;
-    virtual bool IsApplicable(opt::IRContext* context,
-                              const TransformationContext& context) const = 0;
-    virtual void Apply(opt::IRContext* context,
-                       TransformationContext* context) const = 0;
-};
-```
-
-#### 模糊测试 Pass 列表 (部分)
-
-| Pass | 描述 |
-|------|------|
-| FuzzerPassAddAccessChains | 添加访问链 |
-| FuzzerPassAddBitInstructionSynonyms | 添加位指令同义词 |
-| FuzzerPassAddCompositeExtract | 添加复合提取 |
-| FuzzerPassAddCompositeInserts | 添加复合插入 |
-| FuzzerPassAddCopyMemory | 添加内存拷贝 |
-| FuzzerPassAddDeadBlocks | 添加死代码块 |
-| FuzzerPassAddDeadBreaks | 添加死 break |
-| FuzzerPassAddDeadContinues | 添加死 continue |
-| FuzzerPassAddEquationInstructions | 添加等式指令 |
-| FuzzerPassAddFunctionCalls | 添加函数调用 |
-| FuzzerPassAddGlobalVariables | 添加全局变量 |
-| FuzzerPassAddLoads | 添加加载 |
-| FuzzerPassAddLocalVariables | 添加局部变量 |
-| FuzzerPassAddLoopPreheaders | 添加循环预头 |
-| FuzzerPassAddOpPhiSynonyms | 添加 OpPhi 同义词 |
-| FuzzerPassAddParameters | 添加函数参数 |
-| FuzzerPassAddStores | 添加存储 |
-| FuzzerPassAddSynonyms | 添加同义词 |
-| FuzzerPassConstructComposites | 构造复合值 |
-| FuzzerPassCopyObjects | 拷贝对象 |
-| FuzzerPassDonateModules | 捐赠模块 |
-| FuzzerPassInlineFunctions | 内联函数 |
-| FuzzerPassMergeBlocks | 合并基本块 |
-| FuzzerPassObfuscateConstants | 混淆常量 |
-| FuzzerPassOutlineFunctions | 提取函数 |
-| FuzzerPassPermuteBlocks | 排列基本块 |
-| FuzzerPassSplitBlocks | 分割基本块 |
-| ... | (更多) |
-
----
+模糊测试器对 SPIR-V 模块应用语义保持的变换。核心类：Fuzzer, FuzzerPass, Transformation。
 
 ### 4.6 缩减器模块 (source/reduce/)
 
-缩减器简化/缩小 SPIR-V 模块，同时保持用户定义的"有趣性"条件。
-
-#### 核心类
-
-##### `Reducer` — 缩减器主类
-
-```cpp
-class Reducer {
-public:
-    Reducer(spv_target_env env, MessageConsumer consumer);
-
-    // 运行缩减
-    Status Run(const std::vector<uint32_t>& binary,
-               const spvtools::ReducerOptions& options,
-               std::vector<uint32_t>* reduced_binary);
-};
-```
-
-##### `ReductionOpportunity` — 缩减机会基类
-
-```cpp
-class ReductionOpportunity {
-public:
-    virtual ~ReductionOpportunity() = default;
-    virtual bool PreconditionHolds() = 0;  // 前置条件检查
-    virtual void Apply() = 0;              // 应用缩减
-};
-```
-
-##### `ReductionOpportunityFinder` — 缩减机会查找器基类
-
-```cpp
-class ReductionOpportunityFinder {
-public:
-    virtual ~ReductionOpportunityFinder() = default;
-    virtual std::vector<std::unique_ptr<ReductionOpportunity>>
-        GetAvailableOpportunities(opt::IRContext* context) const = 0;
-    virtual std::string name() const = 0;
-};
-```
-
-#### 内置缩减策略
-
-| Finder | 描述 |
-|--------|------|
-| `ConditionalBranchToSimpleConditionalBranchOpportunityFinder` | 条件分支简化 |
-| `MergeBlocksReductionOpportunityFinder` | 合并基本块 |
-| `OperandToConstReductionOpportunityFinder` | 操作数替换为常量 |
-| `OperandToUndefReductionOpportunityFinder` | 操作数替换为 undef |
-| `OperandToDominatingIdReductionOpportunityFinder` | 操作数替换为支配 ID |
-| `RemoveBlockReductionOpportunityFinder` | 移除基本块 |
-| `RemoveFunctionReductionOpportunityFinder` | 移除函数 |
-| `RemoveInstructionReductionOpportunityFinder` | 移除指令 |
-| `RemoveSelectionReductionOpportunityFinder` | 移除选择 |
-| `RemoveUnusedInstructionReductionOpportunityFinder` | 移除未使用指令 |
-| `RemoveUnusedStructMemberReductionOpportunityFinder` | 移除未使用结构体成员 |
-| `SimpleConditionalBranchToBranchOpportunityFinder` | 简单条件分支转无条件 |
-| `StructuredConstructToBlockReductionOpportunityFinder` | 结构化构造转基本块 |
-| `StructuredLoopToSelectionReductionOpportunityFinder` | 结构化循环转选择 |
-
----
+缩减器简化 SPIR-V 模块。14 种内置缩减策略。
 
 ### 4.7 差异比较模块 (source/diff/)
 
-差异比较工具对两个 SPIR-V 模块进行 diff 风格的比较。
-
-#### 关键文件
-
-| 文件 | 职责 |
-|------|------|
-| `diff.cpp/h` | 差异比较核心实现 |
-| `lcs.h` | 最长公共子序列算法 |
-
-#### 关键函数
-
-```cpp
-// 执行差异比较
-spv_result_t Diff(spv_const_context context,
-                  const std::vector<uint32_t>& src,
-                  const std::vector<uint32_t>& dst,
-                  spv_text* diff_text,
-                  uint32_t options);
-```
-
----
+差异比较工具。使用最长公共子序列 (LCS) 算法匹配指令。
 
 ### 4.8 工具库 (source/util/)
 
-通用工具库，提供基础数据结构和算法支持。
-
-| 文件 | 描述 |
-|------|------|
-| `bit_vector.cpp/h` | 紧凑位向量 |
-| `bitutils.h` | 位操作工具 |
-| `hash_combine.h` | 哈希组合工具 |
-| `hex_float.h` | 十六进制浮点数解析 |
-| `ilist.h` | 侵入式双向链表 |
-| `ilist_node.h` | 侵入式链表节点 |
-| `index_range.h` | 索引范围迭代器 |
-| `make_unique.h` | MakeUnique 工具 |
-| `parse_number.cpp/h` | 数字解析 |
-| `small_vector.h` | 小型向量优化 (SSO) |
-| `span.h` | 非拥有视图 (span) |
-| `status.h` | 状态码定义 |
-| `string_utils.cpp/h` | 字符串工具 |
-| `timer.cpp/h` | 计时器 |
+通用工具：BitVector, SmallVector, IlList, Timer, Span, HexFloat, StringUtils 等。
 
 ---
 
@@ -990,83 +291,22 @@ spv_result_t Diff(spv_const_context context,
 | 函数 | 描述 |
 |------|------|
 | `spvContextCreate(env)` | 创建上下文 |
-| `spvContextDestroy(context)` | 销毁上下文 |
-| `spvTextToBinary(...)` | 汇编: 文本 -> 二进制 |
-| `spvTextToBinaryWithOptions(...)` | 带选项汇编 |
-| `spvBinaryToText(...)` | 反汇编: 二进制 -> 文本 |
-| `spvBinaryParse(...)` | 二进制解析(回调式) |
+| `spvTextToBinary(...)` | 汇编 |
+| `spvBinaryToText(...)` | 反汇编 |
+| `spvBinaryParse(...)` | 二进制解析 |
 | `spvValidate(...)` | 验证 |
-| `spvValidateWithOptions(...)` | 带选项验证 |
-| `spvValidateBinary(...)` | 原始二进制验证 |
 | `spvOptimizerCreate(env)` | 创建优化器 |
-| `spvOptimizerDestroy(optimizer)` | 销毁优化器 |
-| `spvOptimizerRegisterPassFromFlag(...)` | 注册优化 Pass |
 | `spvOptimizerRun(...)` | 运行优化 |
-| `spvDiagnosticCreate(...)` | 创建诊断对象 |
-| `spvDiagnosticDestroy(...)` | 销毁诊断对象 |
-| `spvSoftwareVersionString()` | 获取版本字符串 |
 
-### C++ API (libspirv.hpp)
+### C++ API
 
-| 类 | 描述 |
-|----|------|
-| `Context` | RAII 包装的 spv_context |
-| `SpirvTools` | 汇编/反汇编/验证接口 |
-| `ValidatorOptions` | 验证器选项 |
-| `OptimizerOptions` | 优化器选项 |
-| `ReducerOptions` | 缩减器选项 |
-| `FuzzerOptions` | 模糊测试选项 |
-
-#### `SpirvTools` 类方法
-
-```cpp
-class SpirvTools {
-public:
-    explicit SpirvTools(spv_target_env env);
-    void SetMessageConsumer(MessageConsumer consumer);
-
-    bool Assemble(const std::string& text, std::vector<uint32_t>* binary,
-                  uint32_t options = kDefaultAssembleOption) const;
-    bool Disassemble(const std::vector<uint32_t>& binary, std::string* text,
-                     uint32_t options = kDefaultDisassembleOption) const;
-    bool Parse(const std::vector<uint32_t>& binary, ...);
-    bool Validate(const std::vector<uint32_t>& binary) const;
-    bool Validate(const uint32_t* binary, size_t binary_size,
-                  spv_validator_options options) const;
-};
-```
-
-### C++ 优化器 API (optimizer.hpp)
-
-```cpp
-class Optimizer {
-public:
-    explicit Optimizer(spv_target_env env);
-    Optimizer& RegisterPass(PassToken&& pass);
-    Optimizer& RegisterPerformancePasses();
-    Optimizer& RegisterSizePasses();
-    Optimizer& RegisterLegalizationPasses();
-    bool RegisterPassesFromFlags(const std::vector<std::string>& flags);
-    bool Run(const uint32_t* original_binary, size_t size,
-             std::vector<uint32_t>* optimized_binary) const;
-};
-
-// 创建各种 Pass Token
-Optimizer::PassToken CreateStripDebugInfoPass();
-Optimizer::PassToken CreateAggressiveDCEPass();
-// ... (见 4.2 节完整列表)
-```
-
-### C++ 链接器 API (linker.hpp)
-
-```cpp
-class LinkerOptions { /* 见 4.4 节 */ };
-
-spv_result_t Link(const Context& context,
-                  const std::vector<std::vector<uint32_t>>& binaries,
-                  std::vector<uint32_t>* linked_binary,
-                  const LinkerOptions& options = LinkerOptions());
-```
+| 类 | 头文件 | 描述 |
+|----|--------|------|
+| `SpirvTools` | libspirv.hpp | 汇编/反汇编/验证 |
+| `Optimizer` | optimizer.hpp | 优化器 |
+| `LinkerOptions` | linker.hpp | 链接器选项 |
+| `Linter` | linter.hpp | 代码检查 |
+| `Context` | libspirv.hpp | RAII 上下文 |
 
 ---
 
@@ -1074,218 +314,498 @@ spv_result_t Link(const Context& context,
 
 | 工具 | 路径 | 描述 |
 |------|------|------|
-| `spirv-as` | `tools/as/as.cpp` | 汇编器: 文本 -> 二进制 |
-| `spirv-dis` | `tools/dis/dis.cpp` | 反汇编器: 二进制 -> 文本 |
-| `spirv-val` | `tools/val/val.cpp` | 验证器 |
-| `spirv-opt` | `tools/opt/opt.cpp` | 优化器 |
-| `spirv-link` | `tools/link/linker.cpp` | 链接器 |
-| `spirv-cfg` | `tools/cfg/cfg.cpp` | 控制流图导出 (GraphViz) |
-| `spirv-fuzz` | `tools/fuzz/fuzz.cpp` | 模糊测试器 |
-| `spirv-reduce` | `tools/reduce/reduce.cpp` | 缩减器 |
-| `spirv-diff` | `tools/diff/diff.cpp` | 差异比较 |
-| `spirv-lint` | `tools/lint/lint.cpp` | 代码检查 |
-| `spirv-objdump` | `tools/objdump/objdump.cpp` | 对象转储 |
-
-### 常用命令示例
-
-```bash
-# 汇编
-spirv-as input.spvasm -o output.spv
-
-# 反汇编
-spirv-dis input.spv -o output.spvasm
-
-# 验证
-spirv-val input.spv
-
-# 优化 (性能)
-spirv-opt -O input.spv -o output.spv
-
-# 优化 (大小)
-spirv-opt -Os input.spv -o output.spv
-
-# 优化 (指定 pass)
-spirv-opt --strip-debug --inline-entry-points-exhaustive input.spv -o output.spv
-
-# 链接
-spirv-link a.spv b.spv -o linked.spv
-
-# 控制流图
-spirv-cfg input.spv -o graph.dot
-
-# 差异比较
-spirv-diff src.spv dst.spv
-
-# 缩减
-spirv-reduce input.spv --interestingness="spirv-val %spv"
-
-# 模糊测试
-spirv-fuzz input.spv -o output.spv --seed=42
-```
+| `spirv-as` | tools/as/ | 汇编器: 文本 → 二进制 |
+| `spirv-dis` | tools/dis/ | 反汇编器: 二进制 → 文本 |
+| `spirv-val` | tools/val/ | 验证器 |
+| `spirv-opt` | tools/opt/ | 优化器 |
+| `spirv-link` | tools/link/ | 链接器 |
+| `spirv-cfg` | tools/cfg/ | 控制流图导出 (GraphViz) |
+| `spirv-fuzz` | tools/fuzz/ | 模糊测试器 |
+| `spirv-reduce` | tools/reduce/ | 缩减器 |
+| `spirv-diff` | tools/diff/ | 差异比较 |
+| `spirv-lint` | tools/lint/ | 代码检查 |
+| `spirv-objdump` | tools/objdump/ | 对象转储 |
 
 ---
 
 ## 7. 模块间依赖关系
 
 ```
-                    ┌──────────────────┐
-                    │    命令行工具     │
-                    │ (spirv-as, etc.) │
-                    └────────┬─────────┘
-                             │
-              ┌──────────────┼──────────────┐
-              │              │              │
-    ┌─────────▼──────┐ ┌────▼─────┐ ┌──────▼──────┐
-    │  libSPIRV-Tools │ │ Optimizer│ │   Linker    │
-    │  (核心库)       │ │ (优化库)  │ │  (链接库)   │
-    │                │ │          │ │             │
-    │ • 汇编/反汇编  │ │ • Pass   │ │ • 合并模块  │
-    │ • 二进制解析   │ │ • IR     │ │ • 符号解析  │
-    │ • 验证器      │ │ • 分析   │ │             │
-    │ • 诊断       │ │          │ │             │
-    └────────┬───────┘ └────┬─────┘ └──────┬──────┘
-             │              │              │
-             │         ┌────▼─────┐        │
-             │         │ libSPIRV │◄───────┘
-             │         │ -Tools   │
-             │         │ (核心库)  │
-             │         └──────────┘
-             │
-    ┌────────▼───────────────────────────────────────┐
-    │              SPIRV-Headers                      │
-    │  (语法 JSON 文件, 枚举定义, 头文件)              │
-    └────────────────────────────────────────────────┘
-
-    扩展模块依赖:
-    ┌────────┐    ┌────────┐    ┌────────┐
-    │ Fuzzer │───▶│Reducer │───▶│  Diff  │
-    │        │    │        │    │        │
-    └───┬────┘    └───┬────┘    └───┬────┘
-        │             │              │
-        ▼             ▼              ▼
-    ┌─────────────────────────────────────┐
-    │        libSPIRV-Tools-opt           │
-    │        (优化器库)                    │
-    └─────────────────┬───────────────────┘
-                      │
-                      ▼
-    ┌─────────────────────────────────────┐
-    │        libSPIRV-Tools               │
-    │        (核心库)                      │
-    └─────────────────────────────────────┘
-```
-
-### 依赖关系说明
-
-1. **libSPIRV-Tools** (核心库): 无其他内部库依赖，仅依赖 SPIRV-Headers
-2. **libSPIRV-Tools-opt** (优化器库): 依赖 libSPIRV-Tools
-3. **libSPIRV-Tools-link** (链接器库): 依赖 libSPIRV-Tools-opt 和 libSPIRV-Tools
-4. **Fuzzer**: 依赖 libSPIRV-Tools-opt + protobuf
-5. **Reducer**: 依赖 libSPIRV-Tools-opt
-6. **Diff**: 依赖 libSPIRV-Tools-opt
-7. **所有命令行工具**: 依赖对应的库
-
----
-
-## 8. 项目运行方式
-
-### 获取源码
-
-```bash
-git clone https://github.com/KhronosGroup/SPIRV-Tools.git spirv-tools
-cd spirv-tools
-python3 utils/git-sync-deps
-```
-
-### 使用 CMake 构建
-
-```bash
-mkdir build && cd build
-cmake [-G <generator>] <spirv-dir>
-cmake --build . [--config Debug]
-```
-
-### 构建 Fuzzer (需要 protobuf)
-
-```bash
-git clone --depth=1 --branch v3.13.0.1 \
-    https://github.com/protocolbuffers/protobuf external/protobuf
-mkdir build && cd build
-cmake <spirv-dir> -DSPIRV_BUILD_FUZZER=ON
-cmake --build . --config Debug
-```
-
-### 使用 Bazel 构建
-
-```bash
-bazel build :all
-bazel test --cxxopt=-std=c++17 :all
-```
-
-### 构建 Android 静态库
-
-```bash
-export ANDROID_NDK=/path/to/ndk
-mkdir build && cd build
-$ANDROID_NDK/ndk-build -C ../android_test \
-    NDK_PROJECT_PATH=. \
-    NDK_LIBS_OUT=`pwd`/libs \
-    NDK_APP_OUT=`pwd`/app
-```
-
-### 构建 WebAssembly 模块
-
-```bash
-# 需要 Emscripten SDK
-./source/wasm/build.sh
-node ./test/wasm/test.js
-```
-
-### 运行测试
-
-```bash
-# CMake
-ctest -j$(nproc)
-ctest -R 'spirv-tools-test_opt'
-
-# Bazel
-bazel test --cxxopt=-std=c++17 :all
+命令行工具 → libSPIRV-Tools-opt → libSPIRV-Tools → SPIRV-Headers
+           ↘ libSPIRV-Tools-link ↗
+Fuzzer/Reducer/Diff → libSPIRV-Tools-opt → libSPIRV-Tools
 ```
 
 ---
 
-## 9. 测试体系
+## 8. 预编译工具下载
 
-### 测试框架
+本项目的 dist 目录中提供了已编译好的工具文件，可直接使用：
 
-- **googletest**: C++ 单元测试框架
-- **Effcee**: 状态匹配测试 (用于优化器输出验证)
+### dist 目录结构
 
-### 测试目录结构
+```
+dist/
+├── linux-x86_64/              # Linux x86_64 预编译工具
+│   ├── spirv-as               # 汇编器
+│   ├── spirv-dis              # 反汇编器
+│   ├── spirv-val              # 验证器
+│   ├── spirv-opt              # 优化器
+│   ├── spirv-link             # 链接器
+│   ├── spirv-cfg              # 控制流图
+│   ├── spirv-diff             # 差异比较
+│   ├── spirv-lint             # 代码检查
+│   ├── spirv-objdump          # 对象转储
+│   └── spirv-reduce           # 缩减器
+├── windows-x86_64/            # Windows x86_64 预编译工具 (MinGW 交叉编译)
+│   ├── spirv-as.exe
+│   ├── spirv-dis.exe
+│   ├── spirv-val.exe
+│   ├── spirv-opt.exe
+│   ├── spirv-link.exe
+│   ├── spirv-cfg.exe
+│   ├── spirv-diff.exe
+│   ├── spirv-lint.exe
+│   ├── spirv-objdump.exe
+│   └── spirv-reduce.exe
+├── samples/                   # 测试用样本文件
+│   ├── simple_vertex.spvasm   # 顶点着色器汇编源码
+│   ├── simple_fragment.spvasm # 片段着色器汇编源码
+│   ├── simple_vertex.spv      # 已编译顶点着色器二进制
+│   ├── simple_fragment.spv    # 已编译片段着色器二进制
+│   ├── simple_vertex_opt.spv  # 优化后的顶点着色器
+│   ├── simple_fragment_opt.spv# 优化后的片段着色器
+│   ├── simple_vertex_stripped.spv # 去除调试信息后的着色器
+│   └── linked.spv             # 链接后的着色器
+├── SPIRV-Tools-Code-Wiki.md   # 本文档 (Markdown)
+└── SPIRV-Tools-Code-Wiki.html # 本文档 (HTML)
+```
 
-| 目录 | 内容 |
+### 编译信息
+
+| 平台 | 编译器 | 编译模式 | 大小 |
+|------|--------|----------|------|
+| Linux x86_64 | GCC 13.3.0 | Release | ~28MB (全部工具) |
+| Windows x86_64 | MinGW-w64 GCC 13.2.0 (交叉编译) | Release | ~55MB (全部工具) |
+| macOS | 需在 macOS 上原生编译 | Release | 见下方编译指南 |
+
+### Linux 使用方法
+
+```bash
+# 添加工具到 PATH
+export PATH=/path/to/dist/linux-x86_64:$PATH
+
+# 或者直接指定完整路径
+/path/to/dist/linux-x86_64/spirv-val your_shader.spv
+```
+
+### Windows 使用方法
+
+1. 将 `dist\windows-x86_64` 目录复制到 Windows 机器
+2. 打开 CMD 或 PowerShell
+3. 直接运行 `.exe` 文件：
+```cmd
+C:\path\to\dist\windows-x86_64\spirv-val.exe your_shader.spv
+```
+4. 或将目录加入 PATH 环境变量后直接使用工具名
+
+> **注意**: Windows 版本通过 MinGW 交叉编译生成，运行时可能需要 `libgcc_s_seh-1.dll`、`libstdc++-6.dll`、`libwinpthread-1.dll` 等运行时库。如果缺少 DLL，可将 MinGW 的 `bin` 目录加入 PATH，或将所需 DLL 复制到工具同目录。
+
+---
+
+## 9. 输入文件获取方式
+
+SPIRV-Tools 处理的输入文件主要有两类：**SPIR-V 汇编文本** (`.spvasm`) 和 **SPIR-V 二进制** (`.spv`)。以下是获取方式：
+
+### 方式一：使用本项目自带的样本文件
+
+`dist/samples/` 目录已包含可直接使用的测试文件：
+
+| 文件 | 类型 | 描述 |
+|------|------|------|
+| `simple_vertex.spvasm` | 汇编文本 | 简单顶点着色器 (输出 vec4(1,1,1,1)) |
+| `simple_fragment.spvasm` | 汇编文本 | 简单片段着色器 (输出红色) |
+| `simple_vertex.spv` | 二进制 | 已编译的顶点着色器 |
+| `simple_fragment.spv` | 二进制 | 已编译的片段着色器 |
+
+### 方式二：从 GLSL/HLSL 编译生成 (最常用)
+
+这是实际开发中最常见的方式，使用着色器编译器将高级着色语言编译为 SPIR-V：
+
+#### 使用 glslangValidator (Vulkan SDK 自带)
+
+```bash
+# 安装: Vulkan SDK 自带，或 apt install glslang-tools
+# GLSL 顶点着色器 → SPIR-V
+glslangValidator -V shader.vert -o shader.spv
+
+# GLSL 片段着色器 → SPIR-V
+glslangValidator -V shader.frag -o shader.spv
+
+# GLSL 计算着色器 → SPIR-V
+glslangValidator -V shader.comp -o shader.spv
+```
+
+#### 使用 dxc (DirectX Shader Compiler)
+
+```bash
+# 安装: https://github.com/microsoft/DirectXShaderCompiler
+# HLSL 顶点着色器 → SPIR-V
+dxc -T vs_6_0 -E main shader.hlsl -spirv -o shader.spv
+
+# HLSL 片段着色器 → SPIR-V
+dxc -T ps_6_0 -E main shader.hlsl -spirv -o shader.spv
+
+# HLSL 计算着色器 → SPIR-V
+dxc -T cs_6_0 -E main shader.hlsl -spirv -o shader.spv
+```
+
+### 方式三：手工编写 SPIR-V 汇编
+
+直接编写 `.spvasm` 文件，然后用 `spirv-as` 编译：
+
+```spirv
+; SPIR-V
+; Version: 1.0
+; Generator: Khronos SPIR-V Tools Assembler; 0
+; Bound: 7
+; Schema: 0
+               OpCapability Shader
+          %1 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Vertex %main "main"
+               OpSource GLSL 450
+               OpName %main "main"
+       %void = OpTypeVoid
+          %3 = OpTypeFunction %void
+       %main = OpFunction %void None %3
+          %5 = OpLabel
+               OpReturn
+               OpFunctionEnd
+```
+
+编译为二进制：
+```bash
+spirv-as my_shader.spvasm -o my_shader.spv
+```
+
+### 方式四：从现有项目中获取
+
+| 来源 | 说明 |
 |------|------|
-| `test/` (根) | 核心库测试 (汇编/反汇编/解析等) |
-| `test/opt/` | 优化器测试 |
-| `test/val/` | 验证器测试 |
-| `test/link/` | 链接器测试 |
-| `test/fuzz/` | 模糊测试器测试 |
-| `test/reduce/` | 缩减器测试 |
-| `test/diff/` | 差异比较测试 |
-| `test/lint/` | 代码检查测试 |
-| `test/util/` | 工具库测试 |
-| `test/fuzzers/` | libFuzzer 目标 |
-| `test/tools/` | 命令行工具测试 |
-| `test/wasm/` | WebAssembly 测试 |
+| Vulkan SDK 示例 | `VULKAN_SDK/examples/` 目录下的着色器 |
+| Khronos SPIRV-Headers | `test/` 目录下的测试文件 |
+| GPU 驱动工具 | RenderDoc、PIX 等可捕获着色器 |
+| 开源游戏引擎 | Unity/Unreal/Godot 编译输出 |
+| SPIRV-Tools 仓库 | `test/` 目录包含大量测试用 `.spvasm` 文件 |
+| GraphicsFuzz | `test/fuzzers/corpora/spv/` 包含模糊测试语料 |
 
-### 测试规模
+### 方式五：从 Vulkan 应用中提取
 
-- 核心库测试: ~50+ 测试文件
-- 优化器测试: ~80+ 测试文件
-- 验证器测试: ~50+ 测试文件
-- 模糊测试器测试: ~60+ 测试文件 (transformation 测试)
-- 缩减器测试: ~15+ 测试文件
+使用 RenderDoc 等图形调试工具捕获 Vulkan 应用的帧数据，可直接导出 SPIR-V 着色器二进制。
 
 ---
 
-> 本文档基于 SPIRV-Tools v2026.2 源码分析生成，最后更新: 2026-05-30
+## 10. 详细测试使用说明
+
+以下使用 `dist/samples/` 中的样本文件演示所有工具的完整使用流程。
+
+### 10.1 汇编器 spirv-as — 将汇编文本编译为二进制
+
+```bash
+# 基本用法
+spirv-as simple_vertex.spvasm -o simple_vertex.spv
+
+# 保留数字 ID (不重新编号)
+spirv-as --preserve-numeric-ids simple_vertex.spvasm -o simple_vertex.spv
+
+# 指定目标环境
+spirv-as --target-env spv1.3 simple_vertex.spvasm -o simple_vertex.spv
+
+# 验证输出
+spirv-dis simple_vertex.spv
+```
+
+**预期输出**: 无错误信息，生成 `.spv` 二进制文件。
+
+### 10.2 反汇编器 spirv-dis — 将二进制转换为汇编文本
+
+```bash
+# 基本用法
+spirv-dis simple_vertex.spv
+
+# 输出到文件
+spirv-dis simple_vertex.spv -o output.spvasm
+
+# 不显示头部注释
+spirv-dis --no-header simple_vertex.spv
+
+# 使用友好名称
+spirv-dis --friendly-names simple_vertex.spv
+
+# 显示字节偏移
+spirv-dis --offsets simple_vertex.spv
+
+# 嵌套缩进 (更可读)
+spirv-dis --nested-indent simple_vertex.spv
+
+# 处理未知操作码
+spirv-dis --handle-unknown-opcodes simple_vertex.spv
+```
+
+**预期输出**:
+```
+; SPIR-V
+; Version: 1.0
+; Generator: Khronos SPIR-V Tools Assembler; 0
+; Bound: 15
+; Schema: 0
+               OpCapability Shader
+          %1 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Vertex %main "main" %gl_Position
+               ...
+```
+
+### 10.3 验证器 spirv-val — 验证 SPIR-V 模块合法性
+
+```bash
+# 基本验证
+spirv-val simple_vertex.spv
+
+# 指定目标环境
+spirv-val --target-env vulkan1.2 simple_vertex.spv
+
+# 放松逻辑指针规则
+spirv-val --relax-logical-pointer simple_vertex.spv
+
+# 放松存储结构规则
+spirv-val --relax-store-structure simple_vertex.spv
+
+# 使用标量块布局
+spirv-val --scalar-block-layout simple_vertex.spv
+
+# HLSL 合法化前的宽松验证
+spirv-val --before-hlsl-legalization simple_vertex.spv
+
+# 显示友好名称
+spirv-val --friendly-names simple_vertex.spv
+```
+
+**预期输出** (合法模块): 无输出，退出码 0。
+
+**非法模块输出示例**:
+```
+error: 13: OpStore Value <id> '14'ss type does not match Object <id> '13'ss type.
+```
+
+### 10.4 优化器 spirv-opt — 优化 SPIR-V 模块
+
+```bash
+# 性能优化 (-O)
+spirv-opt -O simple_vertex.spv -o optimized_perf.spv
+
+# 大小优化 (-Os)
+spirv-opt -Os simple_fragment.spv -o optimized_size.spv
+
+# HLSL 合法化
+spirv-opt --legalize-hlsl shader.spv -o legalized.spv
+
+# 指定单个优化 Pass
+spirv-opt --strip-debug simple_vertex.spv -o stripped.spv
+spirv-opt --inline-entry-points-exhaustive simple_vertex.spv -o inlined.spv
+spirv-opt --eliminate-dead-code-aggressive simple_vertex.spv -o dce.spv
+spirv-opt --constant-propagation simple_vertex.spv -o ccp.spv
+spirv-opt --loop-unroll simple_vertex.spv -o unrolled.spv
+
+# 组合多个 Pass
+spirv-opt --strip-debug --eliminate-dead-code-aggressive \
+          --merge-blocks --compact-ids \
+          simple_vertex.spv -o fully_optimized.spv
+
+# 查看所有可用 Pass
+spirv-opt --help
+
+# 打印每步优化结果
+spirv-opt -O --print-all simple_vertex.spv -o optimized.spv
+
+# 每步优化后验证
+spirv-opt -O --validate-after-all simple_vertex.spv -o optimized.spv
+
+# 保留绑定
+spirv-opt -O --preserve-bindings simple_vertex.spv -o optimized.spv
+
+# 保留专业化常量
+spirv-opt -O --preserve-spec-constants simple_vertex.spv -o optimized.spv
+```
+
+**预期输出**: 无错误信息，生成优化后的 `.spv` 文件（通常更小）。
+
+### 10.5 链接器 spirv-link — 合并多个 SPIR-V 模块
+
+```bash
+# 基本链接
+spirv-link vertex.spv fragment.spv -o linked.spv
+
+# 创建库 (保留导出符号)
+spirv-link --create-library a.spv b.spv -o library.spv
+
+# 允许部分链接
+spirv-link --allow-partial-linkage a.spv b.spv -o partial.spv
+
+# 验证 ID 唯一性
+spirv-link --verify-ids a.spv b.spv -o linked.spv
+```
+
+### 10.6 控制流图 spirv-cfg — 导出 GraphViz 格式
+
+```bash
+# 导出 DOT 文件
+spirv-cfg simple_vertex.spv -o cfg.dot
+
+# 生成 PNG 图片 (需要 graphviz)
+spirv-cfg simple_vertex.spv -o cfg.dot && dot -Tpng cfg.dot -o cfg.png
+
+# 生成 SVG 图片
+spirv-cfg simple_vertex.spv -o cfg.dot && dot -Tsvg cfg.dot -o cfg.svg
+```
+
+### 10.7 差异比较 spirv-diff — 比较两个模块
+
+```bash
+# 比较优化前后
+spirv-diff original.spv optimized.spv
+
+# 比较两个不同版本
+spirv-diff v1.spv v2.spv
+```
+
+**预期输出** (带 `-` 和 `+` 标记):
+```
+-               OpName %4 "v"
++               OpName %3 "v"
+```
+
+### 10.8 代码检查 spirv-lint
+
+```bash
+spirv-lint simple_vertex.spv
+```
+
+### 10.9 对象转储 spirv-objdump
+
+```bash
+# 显示所有节
+spirv-objdump -s simple_vertex.spv
+
+# 显示源码
+spirv-objdump --source simple_vertex.spv
+```
+
+### 10.10 缩减器 spirv-reduce
+
+```bash
+# 使用有趣性测试缩减
+spirv-reduce buggy.spv --interestingness="spirv-val %spv" -o reduced.spv
+
+# 指定步数限制
+spirv-reduce buggy.spv --interestingness="your_test.sh %spv" \
+          --step-limit=100 -o reduced.spv
+```
+
+### 完整测试流程示例
+
+```bash
+#!/bin/bash
+# 完整的 SPIRV-Tools 测试流程
+
+# 1. 汇编
+spirv-as simple_vertex.spvasm -o vertex.spv
+echo "汇编完成: vertex.spv"
+
+# 2. 验证
+spirv-val vertex.spv
+echo "验证结果: $? (0=通过)"
+
+# 3. 反汇编
+spirv-dis vertex.spv -o vertex_dis.spvasm
+echo "反汇编完成: vertex_dis.spvasm"
+
+# 4. 性能优化
+spirv-opt -O vertex.spv -o vertex_opt.spv
+echo "优化完成: vertex_opt.spv"
+
+# 5. 验证优化结果
+spirv-val vertex_opt.spv
+echo "优化后验证: $? (0=通过)"
+
+# 6. 比较大小
+echo "原始大小: $(wc -c < vertex.spv) bytes"
+echo "优化大小: $(wc -c < vertex_opt.spv) bytes"
+
+# 7. 差异比较
+spirv-diff vertex.spv vertex_opt.spv
+
+# 8. 去除调试信息
+spirv-opt --strip-debug vertex.spv -o vertex_stripped.spv
+echo "去调试信息大小: $(wc -c < vertex_stripped.spv) bytes"
+
+# 9. 导出控制流图
+spirv-cfg vertex.spv -o vertex_cfg.dot
+echo "控制流图已导出"
+```
+
+---
+
+## 11. macOS 编译指南
+
+macOS 版本需要在 macOS 机器上原生编译（无法从 Linux 交叉编译）。步骤如下：
+
+### 前提条件
+
+- macOS 12.0 或更高版本
+- Xcode Command Line Tools: `xcode-select --install`
+- CMake: `brew install cmake`
+- Python 3: `brew install python3`
+
+### 编译步骤
+
+```bash
+# 1. 克隆源码
+git clone https://github.com/KhronosGroup/SPIRV-Tools.git
+cd SPIRV-Tools
+python3 utils/git-sync-deps
+
+# 2. 编译
+mkdir build && cd build
+cmake -DCMAKE_BUILD_TYPE=Release -DSPIRV_SKIP_TESTS=ON ..
+cmake --build . -j$(sysctl -n hw.ncpu)
+
+# 3. 工具位于
+ls tools/spirv-*
+
+# 4. 可选：安装到系统
+sudo cmake --install .
+```
+
+### 生成 Universal Binary (Apple Silicon + Intel)
+
+```bash
+mkdir build-universal && cd build-universal
+cmake -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" \
+      -DSPIRV_SKIP_TESTS=ON ..
+cmake --build . -j$(sysctl -n hw.ncpu)
+```
+
+### 使用 Homebrew 安装 (最简单)
+
+```bash
+brew install spirv-tools
+```
+
+安装后工具位于 `/usr/local/bin/` 或 `/opt/homebrew/bin/`。
+
+---
+
+> 本文档基于 SPIRV-Tools v2026.2 源码分析生成，包含实际编译和测试结果。最后更新: 2026-05-30
