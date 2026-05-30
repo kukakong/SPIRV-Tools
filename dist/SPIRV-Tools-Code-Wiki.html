@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPIRV-Tools Code Wiki</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text: #1e293b;
+            --text-light: #64748b;
+            --border: #e2e8f0;
+            --code-bg: #1e293b;
+            --code-text: #e2e8f0;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --info: #3b82f6;
+            --danger: #ef4444;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+        }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+        /* Header */
+        header {
+            background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
+            color: white;
+            padding: 60px 0 40px;
+            position: relative;
+            overflow: hidden;
+        }
+        header::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 60%;
+            height: 200%;
+            background: radial-gradient(ellipse, rgba(255,255,255,0.05) 0%, transparent 70%);
+        }
+        header h1 { font-size: 2.5rem; font-weight: 800; margin-bottom: 8px; }
+        header .subtitle { font-size: 1.1rem; opacity: 0.85; }
+        header .meta { margin-top: 16px; display: flex; gap: 16px; flex-wrap: wrap; }
+        header .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 20px;
+            font-size: 0.85rem;
+            backdrop-filter: blur(4px);
+        }
+
+        /* Navigation */
+        nav {
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        nav .container { display: flex; gap: 4px; overflow-x: auto; padding: 8px 24px; }
+        nav a {
+            padding: 8px 16px;
+            color: var(--text-light);
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        nav a:hover { background: var(--bg); color: var(--primary); }
+
+        /* Main Content */
+        main { padding: 40px 0 80px; }
+
+        .section {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 32px;
+            margin-bottom: 24px;
+            border: 1px solid var(--border);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .section h2 {
+            font-size: 1.6rem;
+            color: var(--primary-dark);
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .section h3 {
+            font-size: 1.25rem;
+            color: var(--text);
+            margin: 24px 0 12px;
+            padding-left: 12px;
+            border-left: 3px solid var(--primary);
+        }
+        .section h4 {
+            font-size: 1.05rem;
+            color: var(--text);
+            margin: 16px 0 8px;
+        }
+        .section p { margin-bottom: 12px; }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+            font-size: 0.9rem;
+        }
+        th {
+            background: var(--primary);
+            color: white;
+            padding: 10px 14px;
+            text-align: left;
+            font-weight: 600;
+        }
+        td {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border);
+        }
+        tr:nth-child(even) td { background: #f8fafc; }
+        tr:hover td { background: #eff6ff; }
+
+        /* Code */
+        pre {
+            background: var(--code-bg);
+            color: var(--code-text);
+            padding: 20px;
+            border-radius: 12px;
+            overflow-x: auto;
+            margin: 16px 0;
+            font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        code {
+            font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 0.85em;
+        }
+        :not(pre) > code {
+            background: #eff6ff;
+            color: var(--primary-dark);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .kw { color: #c084fc; }
+        .fn { color: #67e8f9; }
+        .tp { color: #4ade80; }
+        .cm { color: #94a3b8; }
+        .st { color: #fbbf24; }
+        .num { color: #fb923c; }
+
+        /* Architecture Diagram */
+        .arch-diagram {
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 24px;
+            border-radius: 12px;
+            font-family: monospace;
+            font-size: 0.82rem;
+            line-height: 1.5;
+            overflow-x: auto;
+            margin: 16px 0;
+            white-space: pre;
+        }
+
+        /* Cards */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+            margin: 16px 0;
+        }
+        .card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.2s;
+        }
+        .card:hover {
+            border-color: var(--primary);
+            box-shadow: 0 4px 12px rgba(37,99,235,0.1);
+            transform: translateY(-2px);
+        }
+        .card h4 { margin: 0 0 8px; color: var(--primary-dark); }
+        .card p { margin: 0; font-size: 0.9rem; color: var(--text-light); }
+
+        /* Status badges */
+        .status {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 0.78rem;
+            font-weight: 600;
+        }
+        .status-stable { background: #d1fae5; color: #065f46; }
+        .status-dev { background: #fef3c7; color: #92400e; }
+
+        /* TOC */
+        .toc {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin: 16px 0;
+        }
+        .toc h3 { margin: 0 0 12px; border-left: none; padding-left: 0; }
+        .toc ol { padding-left: 20px; }
+        .toc li { margin: 6px 0; }
+        .toc a { color: var(--primary); text-decoration: none; }
+        .toc a:hover { text-decoration: underline; }
+
+        /* Dep diagram */
+        .dep-box {
+            display: inline-block;
+            padding: 8px 16px;
+            border: 2px solid var(--primary);
+            border-radius: 8px;
+            margin: 4px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .dep-arrow { color: var(--text-light); font-size: 1.2rem; margin: 0 8px; }
+
+        /* Footer */
+        footer {
+            background: var(--code-bg);
+            color: var(--text-light);
+            text-align: center;
+            padding: 24px;
+            font-size: 0.85rem;
+        }
+        footer a { color: var(--info); }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            header h1 { font-size: 1.8rem; }
+            .section { padding: 20px; }
+            .card-grid { grid-template-columns: 1fr; }
+            table { font-size: 0.8rem; }
+            th, td { padding: 8px 10px; }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-light); }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="container">
+        <h1>SPIRV-Tools Code Wiki</h1>
+        <p class="subtitle">SPIR-V 模块处理工具集 &mdash; 汇编、反汇编、验证、优化、链接</p>
+        <div class="meta">
+            <span class="badge">v2026.2</span>
+            <span class="badge">Apache 2.0</span>
+            <span class="badge">Khronos Group Inc.</span>
+            <span class="badge">C++17</span>
+        </div>
+    </div>
+</header>
+
+<nav>
+    <div class="container">
+        <a href="#overview">概述</a>
+        <a href="#architecture">架构</a>
+        <a href="#build">构建</a>
+        <a href="#core">核心模块</a>
+        <a href="#optimizer">优化器</a>
+        <a href="#validator">验证器</a>
+        <a href="#linker">链接器</a>
+        <a href="#fuzzer">模糊器</a>
+        <a href="#reducer">缩减器</a>
+        <a href="#diff">差异</a>
+        <a href="#api">API</a>
+        <a href="#tools">工具</a>
+        <a href="#deps">依赖</a>
+    </div>
+</nav>
+
+<main class="container">
+
+<!-- Section 1: Overview -->
+<div class="section" id="overview">
+    <h2>&#128218; 1. 项目概述</h2>
+    <p><strong>SPIRV-Tools</strong> 是由 Khronos Group 维护的开源项目，提供用于处理 SPIR-V 模块的 API 和命令行工具。SPIR-V 是 Vulkan、OpenCL 等 Khronos API 使用的中间着色器语言二进制格式。</p>
+
+    <h3>核心功能</h3>
+    <div class="card-grid">
+        <div class="card"><h4>汇编器</h4><p>将 SPIR-V 汇编文本转换为二进制 <span class="status status-stable">稳定</span></p></div>
+        <div class="card"><h4>反汇编器</h4><p>将 SPIR-V 二进制转换为汇编文本 <span class="status status-stable">稳定</span></p></div>
+        <div class="card"><h4>二进制解析器</h4><p>解析 SPIR-V 二进制并发出回调 <span class="status status-stable">稳定</span></p></div>
+        <div class="card"><h4>验证器</h4><p>检查 SPIR-V 模块是否符合规范 <span class="status status-dev">开发中</span></p></div>
+        <div class="card"><h4>优化器</h4><p>70+ 优化 Pass 对 SPIR-V 进行代码变换 <span class="status status-stable">稳定</span></p></div>
+        <div class="card"><h4>链接器</h4><p>合并多个 SPIR-V 二进制模块 <span class="status status-dev">开发中</span></p></div>
+        <div class="card"><h4>缩减器</h4><p>简化/缩小 SPIR-V 模块 <span class="status status-dev">开发中</span></p></div>
+        <div class="card"><h4>模糊测试器</h4><p>语义保持的变异测试 <span class="status status-dev">开发中</span></p></div>
+        <div class="card"><h4>差异比较</h4><p>比较两个 SPIR-V 模块差异 <span class="status status-dev">开发中</span></p></div>
+        <div class="card"><h4>代码检查</h4><p>对 SPIR-V 模块执行 lint <span class="status status-dev">开发中</span></p></div>
+    </div>
+
+    <h3>支持的 SPIR-V 版本</h3>
+    <p>SPIR-V 1.0 至 1.6 &nbsp;|&nbsp; Vulkan 1.0~1.4 &nbsp;|&nbsp; OpenCL 1.2~2.2 &nbsp;|&nbsp; OpenGL 4.0~4.5</p>
+</div>
+
+<!-- Section 2: Architecture -->
+<div class="section" id="architecture">
+    <h2>&#127959; 2. 项目架构</h2>
+
+    <h3>目录结构</h3>
+<pre>
+spirv-tools/
+├── include/spirv-tools/     <span class="cm"># 公共 API 头文件</span>
+│   ├── libspirv.h           <span class="cm"># C 语言 API</span>
+│   ├── libspirv.hpp         <span class="cm"># C++ 语言 API</span>
+│   ├── optimizer.hpp        <span class="cm"># 优化器 C++ API</span>
+│   ├── linker.hpp           <span class="cm"># 链接器 C++ API</span>
+│   └── linter.hpp           <span class="cm"># 代码检查 C++ API</span>
+├── source/                  <span class="cm"># 核心实现源码</span>
+│   ├── *.cpp/h              <span class="cm"># 核心 SPIR-V 处理逻辑</span>
+│   ├── opt/                 <span class="cm"># 优化器模块 (~70+ 优化 pass)</span>
+│   ├── val/                 <span class="cm"># 验证器模块</span>
+│   ├── link/                <span class="cm"># 链接器模块</span>
+│   ├── fuzz/                <span class="cm"># 模糊测试模块</span>
+│   ├── reduce/              <span class="cm"># 缩减器模块</span>
+│   ├── diff/                <span class="cm"># 差异比较模块</span>
+│   └── util/                <span class="cm"># 通用工具库</span>
+├── tools/                   <span class="cm"># 命令行工具入口</span>
+├── test/                    <span class="cm"># 测试代码</span>
+├── examples/                <span class="cm"># 示例代码</span>
+├── external/                <span class="cm"># 外部依赖</span>
+├── cmake/                   <span class="cm"># CMake 配置文件</span>
+├── docs/                    <span class="cm"># 文档</span>
+└── utils/                   <span class="cm"># 构建和开发脚本</span>
+</pre>
+
+    <h3>架构层次图</h3>
+    <div class="arch-diagram">
+┌─────────────────────────────────────────────────────────────┐
+│                     命令行工具层 (tools/)                     │
+│   spirv-as | spirv-dis | spirv-val | spirv-opt | spirv-link │
+├─────────────────────────────────────────────────────────────┤
+│                      公共 API 层                             │
+│   libspirv.h(C) | libspirv.hpp(C++) | optimizer.hpp          │
+│   linker.hpp | linter.hpp                                   │
+├─────────────────────────────────────────────────────────────┤
+│                      核心库层                                │
+│   ┌──────────┐ ┌──────────┐ ┌────────┐ ┌────────┐          │
+│   │ 汇编/反汇编│ │ 二进制解析 │ │ 验证器  │ │  诊断   │          │
+│   └──────────┘ └──────────┘ └────────┘ └────────┘          │
+├─────────────────────────────────────────────────────────────┤
+│                   优化器库层 (opt/)                           │
+│   IRContext | Pass | PassManager | Module | CFG              │
+│   70+ 优化 Pass (DCE, 内联, 常量折叠, 循环优化...)            │
+├─────────────────────────────────────────────────────────────┤
+│                    扩展功能层                                 │
+│   ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐  │
+│   │  链接器  │ │ 模糊器  │ │ 缩减器  │ │  差异   │ │  检查   │  │
+│   └────────┘ └────────┘ └────────┘ └────────┘ └────────┘  │
+├─────────────────────────────────────────────────────────────┤
+│                    工具库层 (util/)                           │
+│   BitVector | SmallVector | IlList | Timer | Span            │
+└─────────────────────────────────────────────────────────────┘
+    </div>
+</div>
+
+<!-- Section 3: Build -->
+<div class="section" id="build">
+    <h2>&#128295; 3. 构建系统与依赖</h2>
+
+    <h3>构建系统</h3>
+    <table>
+        <tr><th>构建系统</th><th>支持程度</th><th>说明</th></tr>
+        <tr><td><strong>CMake</strong></td><td>主要</td><td>推荐方式，最小版本 3.22.1</td></tr>
+        <tr><td>Bazel</td><td>支持</td><td>版本 7.4.0</td></tr>
+        <tr><td>GN</td><td>支持</td><td>Chromium 构建系统</td></tr>
+        <tr><td>Android NDK</td><td>支持</td><td>ndk-build 方式</td></tr>
+        <tr><td>Emscripten</td><td>支持</td><td>编译为 WebAssembly</td></tr>
+    </table>
+
+    <h3>编译要求</h3>
+    <p><strong>C++ 标准:</strong> C++17 (必须) &nbsp;|&nbsp; <strong>编译器:</strong> GCC 15 / Clang 18 / AppleClang 15.0 / VS 2022 &nbsp;|&nbsp; <strong>Python 3</strong></p>
+
+    <h3>外部依赖</h3>
+    <table>
+        <tr><th>依赖</th><th>用途</th><th>必需</th></tr>
+        <tr><td><strong>SPIRV-Headers</strong></td><td>SPIR-V 语法定义和 JSON 语法文件</td><td>是</td></tr>
+        <tr><td>googletest</td><td>测试框架</td><td>否(仅测试)</td></tr>
+        <tr><td>Effcee</td><td>状态匹配测试库</td><td>否(仅测试)</td></tr>
+        <tr><td>RE2</td><td>正则表达式库 (Effcee 依赖)</td><td>否(仅测试)</td></tr>
+        <tr><td>Abseil</td><td>C++ 基础库 (RE2 依赖)</td><td>否(仅测试)</td></tr>
+        <tr><td>mimalloc</td><td>高性能内存分配器</td><td>否(可选)</td></tr>
+        <tr><td>protobuf</td><td>Fuzzer 序列化</td><td>否(仅 fuzzer)</td></tr>
+    </table>
+
+    <h3>生成库文件</h3>
+    <table>
+        <tr><th>目标</th><th>输出</th><th>说明</th></tr>
+        <tr><td>SPIRV-Tools</td><td>libSPIRV-Tools.a / .lib</td><td>核心静态库</td></tr>
+        <tr><td>SPIRV-Tools-shared</td><td>libSPIRV-Tools-shared.so / .dll</td><td>核心动态库</td></tr>
+        <tr><td>SPIRV-Tools-opt</td><td>libSPIRV-Tools-opt.a / .lib</td><td>优化器静态库</td></tr>
+        <tr><td>SPIRV-Tools-link</td><td>libSPIRV-Tools-link.a / .lib</td><td>链接器静态库</td></tr>
+    </table>
+
+    <h3>构建命令</h3>
+<pre><span class="cm"># 获取源码</span>
+git clone https://github.com/KhronosGroup/SPIRV-Tools.git spirv-tools
+<span class="kw">cd</span> spirv-tools
+python3 utils/git-sync-deps
+
+<span class="cm"># CMake 构建</span>
+mkdir build && <span class="kw">cd</span> build
+cmake [-G &lt;generator&gt;] &lt;spirv-dir&gt;
+cmake --build . [--config Debug]
+
+<span class="cm"># 构建 Fuzzer</span>
+git clone --depth=1 --branch v3.13.0.1 \
+    https://github.com/protocolbuffers/protobuf external/protobuf
+cmake &lt;spirv-dir&gt; -DSPIRV_BUILD_FUZZER=ON
+cmake --build . --config Debug
+
+<span class="cm"># 运行测试</span>
+ctest -j$(nproc)
+</pre>
+</div>
+
+<!-- Section 4: Core -->
+<div class="section" id="core">
+    <h2>&#128268; 4. 核心模块 (source/)</h2>
+
+    <h3>4.1 SPIR-V 核心 (source/ 根目录)</h3>
+    <p>核心模块实现了 SPIR-V 二进制的汇编、反汇编、解析等基础功能，是所有其他模块的基础。</p>
+
+    <h4>关键文件</h4>
+    <table>
+        <tr><th>文件</th><th>职责</th></tr>
+        <tr><td><code>libspirv.cpp</code></td><td>C API 的主要实现，封装汇编/反汇编/验证功能</td></tr>
+        <tr><td><code>binary.cpp/h</code></td><td>SPIR-V 二进制编解码</td></tr>
+        <tr><td><code>text.cpp/h</code></td><td>SPIR-V 汇编文本处理</td></tr>
+        <tr><td><code>text_handler.cpp/h</code></td><td>汇编文本词法分析</td></tr>
+        <tr><td><code>assembly_grammar.cpp/h</code></td><td>SPIR-V 汇编语法规则</td></tr>
+        <tr><td><code>opcode.cpp/h</code></td><td>SPIR-V 操作码定义和查询</td></tr>
+        <tr><td><code>operand.cpp/h</code></td><td>操作数类型定义和解析</td></tr>
+        <tr><td><code>parsed_operand.cpp/h</code></td><td>已解析操作数结构</td></tr>
+        <tr><td><code>disassemble.cpp/h</code></td><td>反汇编器实现</td></tr>
+        <tr><td><code>diagnostic.cpp/h</code></td><td>诊断信息（错误/警告）处理</td></tr>
+        <tr><td><code>ext_inst.cpp/h</code></td><td>扩展指令集处理</td></tr>
+        <tr><td><code>extensions.cpp/h</code></td><td>SPIR-V 扩展支持</td></tr>
+        <tr><td><code>spirv_endian.cpp/h</code></td><td>字节序处理</td></tr>
+        <tr><td><code>spirv_target_env.cpp/h</code></td><td>目标环境（Vulkan/OpenCL 等）支持</td></tr>
+        <tr><td><code>table.cpp/h</code></td><td>SPIR-V 指令语法查找表</td></tr>
+        <tr><td><code>name_mapper.cpp/h</code></td><td>ID 到名称的映射</td></tr>
+        <tr><td><code>cfa.h</code></td><td>控制流分析算法</td></tr>
+        <tr><td><code>enum_set.h</code></td><td>枚举集合模板</td></tr>
+    </table>
+
+    <h4>关键 C API 函数</h4>
+<pre>
+<span class="cm">// 汇编: 文本 -&gt; 二进制</span>
+<span class="tp">spv_result_t</span> <span class="fn">spvTextToBinary</span>(<span class="tp">spv_const_context</span>, <span class="kw">const</span> <span class="tp">char</span>* text,
+                          <span class="tp">size_t</span> length, <span class="tp">spv_binary</span>* binary,
+                          <span class="tp">spv_diagnostic</span>* diagnostic);
+
+<span class="cm">// 反汇编: 二进制 -&gt; 文本</span>
+<span class="tp">spv_result_t</span> <span class="fn">spvBinaryToText</span>(<span class="tp">spv_const_context</span>, <span class="kw">const</span> <span class="tp">uint32_t</span>* binary,
+                          <span class="tp">size_t</span> word_count, <span class="tp">uint32_t</span> options,
+                          <span class="tp">spv_text</span>* text, <span class="tp">spv_diagnostic</span>* diagnostic);
+
+<span class="cm">// 二进制解析 (回调式)</span>
+<span class="tp">spv_result_t</span> <span class="fn">spvBinaryParse</span>(<span class="tp">spv_const_context</span>, <span class="tp">void</span>* user_data,
+                         <span class="kw">const</span> <span class="tp">uint32_t</span>* words, <span class="tp">size_t</span> num_words,
+                         <span class="tp">spv_parsed_header_fn_t</span>,
+                         <span class="tp">spv_parsed_instruction_fn_t</span>,
+                         <span class="tp">spv_diagnostic</span>* diagnostic);
+
+<span class="cm">// 验证</span>
+<span class="tp">spv_result_t</span> <span class="fn">spvValidate</span>(<span class="tp">spv_const_context</span>, <span class="tp">spv_const_binary</span>,
+                       <span class="tp">spv_diagnostic</span>* diagnostic);
+</pre>
+
+    <h4>关键数据结构</h4>
+<pre>
+<span class="kw">typedef struct</span> <span class="tp">spv_parsed_instruction_t</span> {
+    <span class="kw">const</span> <span class="tp">uint32_t</span>* words;         <span class="cm">// 指令字数组</span>
+    <span class="tp">uint16_t</span> num_words;            <span class="cm">// 字数</span>
+    <span class="tp">uint16_t</span> opcode;               <span class="cm">// 操作码</span>
+    <span class="tp">spv_ext_inst_type_t</span> ext_inst_type;  <span class="cm">// 扩展指令类型</span>
+    <span class="tp">uint32_t</span> type_id;              <span class="cm">// 类型 ID</span>
+    <span class="tp">uint32_t</span> result_id;            <span class="cm">// 结果 ID</span>
+    <span class="kw">const</span> <span class="tp">spv_parsed_operand_t</span>* operands;  <span class="cm">// 操作数数组</span>
+    <span class="tp">uint16_t</span> num_operands;         <span class="cm">// 操作数数量</span>
+} <span class="tp">spv_parsed_instruction_t</span>;
+
+<span class="kw">typedef enum</span> <span class="tp">spv_result_t</span> {
+    SPV_SUCCESS = <span class="num">0</span>,
+    SPV_UNSUPPORTED = <span class="num">1</span>,
+    SPV_ERROR_INVALID_BINARY = -<span class="num">4</span>,
+    SPV_ERROR_INVALID_TEXT = -<span class="num">5</span>,
+    SPV_ERROR_INVALID_CFG = -<span class="num">11</span>,
+} <span class="tp">spv_result_t</span>;
+</pre>
+
+    <h3>4.8 工具库 (source/util/)</h3>
+    <table>
+        <tr><th>文件</th><th>描述</th></tr>
+        <tr><td><code>bit_vector.cpp/h</code></td><td>紧凑位向量</td></tr>
+        <tr><td><code>bitutils.h</code></td><td>位操作工具</td></tr>
+        <tr><td><code>hash_combine.h</code></td><td>哈希组合工具</td></tr>
+        <tr><td><code>hex_float.h</code></td><td>十六进制浮点数解析</td></tr>
+        <tr><td><code>ilist.h</code></td><td>侵入式双向链表</td></tr>
+        <tr><td><code>ilist_node.h</code></td><td>侵入式链表节点</td></tr>
+        <tr><td><code>index_range.h</code></td><td>索引范围迭代器</td></tr>
+        <tr><td><code>make_unique.h</code></td><td>MakeUnique 工具</td></tr>
+        <tr><td><code>parse_number.cpp/h</code></td><td>数字解析</td></tr>
+        <tr><td><code>small_vector.h</code></td><td>小型向量优化 (SSO)</td></tr>
+        <tr><td><code>span.h</code></td><td>非拥有视图 (span)</td></tr>
+        <tr><td><code>status.h</code></td><td>状态码定义</td></tr>
+        <tr><td><code>string_utils.cpp/h</code></td><td>字符串工具</td></tr>
+        <tr><td><code>timer.cpp/h</code></td><td>计时器</td></tr>
+    </table>
+</div>
+
+<!-- Section 5: Optimizer -->
+<div class="section" id="optimizer">
+    <h2>&#9889; 5. 优化器模块 (source/opt/)</h2>
+    <p>优化器是 SPIRV-Tools 中最大的模块，包含 70+ 个优化 Pass，用于对 SPIR-V 模块进行各种代码变换和优化。</p>
+
+    <h3>核心类层次</h3>
+<pre>
+<span class="tp">Pass</span> (基类)
+├── <span class="tp">PassToken::Impl</span> (包装器)
+├── <span class="tp">AggressiveDCEPass</span>
+├── <span class="tp">BlockMergePass</span>
+├── <span class="tp">CCPass</span>
+├── <span class="tp">CFGCleanupPass</span>
+├── <span class="tp">CodeSinkingPass</span>
+├── <span class="tp">CombineAccessChainsPass</span>
+├── <span class="tp">CompactIdsPass</span>
+├── <span class="tp">ConvertToHalfPass</span>
+├── <span class="tp">CopyPropagateArraysPass</span>
+├── <span class="tp">DeadBranchElimPass</span>
+├── <span class="tp">DeadInsertElimPass</span>
+├── <span class="tp">EliminateDeadFunctionsPass</span>
+├── <span class="tp">FlattenDecorationPass</span>
+├── <span class="tp">GraphicsRobustAccessPass</span>
+├── <span class="tp">IfConversionPass</span>
+├── <span class="tp">InlineExhaustivePass</span> / <span class="tp">InlineOpaquePass</span>
+├── <span class="tp">LICMPass</span>
+├── <span class="tp">LoopFissionPass</span> / <span class="tp">LoopFusionPass</span> / <span class="tp">LoopUnrollerPass</span>
+├── <span class="tp">MergeReturnPass</span>
+├── <span class="tp">ScalarReplacementPass</span>
+├── <span class="tp">SimplificationPass</span>
+├── <span class="tp">SSARewritePass</span>
+├── <span class="tp">StrengthReductionPass</span>
+├── <span class="tp">StripDebugInfoPass</span>
+├── <span class="tp">UnifyConstantPass</span>
+├── <span class="tp">VectorDCEPass</span>
+└── ... (70+ Pass)
+</pre>
+
+    <h3>关键核心类</h3>
+
+    <h4>IRContext &mdash; IR 上下文</h4>
+    <p>IRContext 是优化器的核心容器，持有 SPIR-V 模块的所有信息和分析结果。</p>
+<pre>
+<span class="kw">class</span> <span class="tp">IRContext</span> {
+<span class="kw">public</span>:
+    <span class="fn">Module</span>* <span class="fn">module</span>();                    <span class="cm">// 获取模块</span>
+    <span class="fn">DefUseManager</span>* <span class="fn">get_def_use_mgr</span>();    <span class="cm">// 定义-使用管理器</span>
+    <span class="fn">DecorationManager</span>* <span class="fn">get_decoration_mgr</span>(); <span class="cm">// 装饰管理器</span>
+    <span class="fn">TypeManager</span>* <span class="fn">get_type_mgr</span>();         <span class="cm">// 类型管理器</span>
+    <span class="fn">FeatureManager</span>* <span class="fn">get_feature_mgr</span>();   <span class="cm">// 特性管理器</span>
+    <span class="fn">CFG</span>* <span class="fn">cfg</span>();                          <span class="cm">// 控制流图</span>
+    <span class="fn">DominatorAnalysis</span>* <span class="fn">GetDominatorAnalysis</span>(<span class="kw">const</span> <span class="tp">Function</span>*);
+    <span class="fn">LoopDescriptor</span>* <span class="fn">GetLoopDescriptor</span>(<span class="kw">const</span> <span class="tp">Function</span>*);
+    <span class="tp">uint32_t</span> <span class="fn">TakeNextId</span>();               <span class="cm">// 获取下一个可用 ID</span>
+};
+</pre>
+
+    <h4>Pass &mdash; 优化 Pass 基类</h4>
+<pre>
+<span class="kw">class</span> <span class="tp">Pass</span> {
+<span class="kw">public</span>:
+    <span class="kw">virtual</span> <span class="tp">Status</span> <span class="fn">Process</span>() = <span class="num">0</span>;      <span class="cm">// 执行优化</span>
+    <span class="kw">virtual</span> <span class="kw">const</span> <span class="tp">char</span>* <span class="fn">name</span>() <span class="kw">const</span> = <span class="num">0</span>; <span class="cm">// Pass 名称</span>
+    <span class="tp">IRContext</span>* <span class="fn">context</span>();                <span class="cm">// 获取 IR 上下文</span>
+};
+</pre>
+
+    <h4>PassManager &mdash; Pass 管理器</h4>
+<pre>
+<span class="kw">class</span> <span class="tp">PassManager</span> {
+<span class="kw">public</span>:
+    <span class="tp">void</span> <span class="fn">AddPass</span>(std::unique_ptr&lt;<span class="tp">Pass</span>&gt; pass);
+    <span class="tp">Status</span> <span class="fn">Run</span>(<span class="tp">IRContext</span>* context);
+};
+</pre>
+
+    <h3>优化 Pass 分类</h3>
+
+    <h4>简化类 Pass</h4>
+    <table>
+        <tr><th>Pass</th><th>创建函数</th><th>描述</th></tr>
+        <tr><td>StripDebugInfoPass</td><td><code>CreateStripDebugInfoPass()</code></td><td>移除所有调试指令</td></tr>
+        <tr><td>StripNonSemanticInfoPass</td><td><code>CreateStripNonSemanticInfoPass()</code></td><td>移除非语义信息</td></tr>
+        <tr><td>FlattenDecorationPass</td><td><code>CreateFlattenDecorationPass()</code></td><td>将分组装饰替换为等价的非分组装饰</td></tr>
+        <tr><td>CompactIdsPass</td><td><code>CreateCompactIdsPass()</code></td><td>将 ID 重新映射为紧凑连续范围</td></tr>
+        <tr><td>RemoveDuplicatesPass</td><td><code>CreateRemoveDuplicatesPass()</code></td><td>移除重复的能力/导入/类型/装饰</td></tr>
+        <tr><td>CFGCleanupPass</td><td><code>CreateCFGCleanupPass()</code></td><td>清理控制流图中的冗余</td></tr>
+    </table>
+
+    <h4>代码缩减类 Pass</h4>
+    <table>
+        <tr><th>Pass</th><th>创建函数</th><th>描述</th></tr>
+        <tr><td>InlineExhaustivePass</td><td><code>CreateInlineExhaustivePass()</code></td><td>穷举内联所有函数调用</td></tr>
+        <tr><td>LocalAccessChainConvertPass</td><td><code>CreateLocalAccessChainConvertPass()</code></td><td>将局部访问链转换为插入/提取</td></tr>
+        <tr><td>LocalSingleBlockElimPass</td><td><code>CreateLocalSingleBlockLoadStoreElimPass()</code></td><td>单块内局部变量加载/存储消除</td></tr>
+        <tr><td>LocalSingleStoreElimPass</td><td><code>CreateLocalSingleStoreElimPass()</code></td><td>单存储局部变量消除</td></tr>
+        <tr><td>LocalMultiStoreElimPass</td><td><code>CreateLocalMultiStoreElimPass()</code></td><td>多存储局部变量 SSA 消除</td></tr>
+        <tr><td>AggressiveDCEPass</td><td><code>CreateAggressiveDCEPass()</code></td><td>激进死代码消除</td></tr>
+        <tr><td>DeadBranchElimPass</td><td><code>CreateDeadBranchElimPass()</code></td><td>死分支消除</td></tr>
+        <tr><td>BlockMergePass</td><td><code>CreateBlockMergePass()</code></td><td>合并单前驱/单后继基本块</td></tr>
+        <tr><td>EliminateDeadFunctionsPass</td><td><code>CreateEliminateDeadFunctionsPass()</code></td><td>移除死函数</td></tr>
+        <tr><td>MergeReturnPass</td><td><code>CreateMergeReturnPass()</code></td><td>将多返回合并为单返回</td></tr>
+        <tr><td>SSARewritePass</td><td><code>CreateSSARewritePass()</code></td><td>将局部变量转换为 SSA 形式</td></tr>
+    </table>
+
+    <h4>代码改进类 Pass</h4>
+    <table>
+        <tr><th>Pass</th><th>创建函数</th><th>描述</th></tr>
+        <tr><td>CCPass</td><td><code>CreateCCPPass()</code></td><td>条件常量传播</td></tr>
+        <tr><td>IfConversionPass</td><td><code>CreateIfConversionPass()</code></td><td>if-then-else 转换为 OpSelect</td></tr>
+        <tr><td>LICMPass</td><td><code>CreateLoopInvariantCodeMotionPass()</code></td><td>循环不变代码外提</td></tr>
+        <tr><td>LoopFissionPass</td><td><code>CreateLoopFissionPass(threshold)</code></td><td>循环分裂</td></tr>
+        <tr><td>LoopFusionPass</td><td><code>CreateLoopFusionPass(max_registers)</code></td><td>循环融合</td></tr>
+        <tr><td>LoopUnrollPass</td><td><code>CreateLoopUnrollPass(fully, factor)</code></td><td>循环展开</td></tr>
+        <tr><td>SimplificationPass</td><td><code>CreateSimplificationPass()</code></td><td>指令简化</td></tr>
+        <tr><td>StrengthReductionPass</td><td><code>CreateStrengthReductionPass()</code></td><td>强度削减</td></tr>
+        <tr><td>ScalarReplacementPass</td><td><code>CreateScalarReplacementPass(limit)</code></td><td>标量替换</td></tr>
+        <tr><td>RedundancyEliminationPass</td><td><code>CreateRedundancyEliminationPass()</code></td><td>全局值编号冗余消除</td></tr>
+        <tr><td>CopyPropagateArraysPass</td><td><code>CreateCopyPropagateArraysPass()</code></td><td>数组拷贝传播</td></tr>
+    </table>
+
+    <h4>预设优化配方</h4>
+    <table>
+        <tr><th>配方</th><th>注册方法</th><th>描述</th></tr>
+        <tr><td>性能优化 (<code>-O</code>)</td><td><code>RegisterPerformancePasses()</code></td><td>优化执行性能</td></tr>
+        <tr><td>大小优化 (<code>-Os</code>)</td><td><code>RegisterSizePasses()</code></td><td>优化代码大小</td></tr>
+        <tr><td>合法化 (<code>--legalize-hlsl</code>)</td><td><code>RegisterLegalizationPasses()</code></td><td>合法化 HLSL 生成的 SPIR-V</td></tr>
+    </table>
+</div>
+
+<!-- Section 6: Validator -->
+<div class="section" id="validator">
+    <h2>&#9989; 6. 验证器模块 (source/val/)</h2>
+    <p>验证器检查 SPIR-V 模块是否符合 SPIR-V 规范中的验证规则。</p>
+
+    <h3>验证分类</h3>
+    <div class="card-grid">
+        <div class="card"><h4>控制流</h4><p>validate_cfg.cpp, validate_adjacency.cpp</p></div>
+        <div class="card"><h4>类型系统</h4><p>validate_type.cpp, validate_composites.cpp, validate_constants.cpp</p></div>
+        <div class="card"><h4>内存操作</h4><p>validate_memory.cpp, validate_atomics.cpp, validate_barriers.cpp</p></div>
+        <div class="card"><h4>图像/采样</h4><p>validate_image.cpp, validate_derivatives.cpp</p></div>
+        <div class="card"><h4>算术/位运算</h4><p>validate_arithmetics.cpp, validate_bitwise.cpp</p></div>
+        <div class="card"><h4>函数/调用</h4><p>validate_function.cpp, validate_group.cpp</p></div>
+        <div class="card"><h4>装饰/注解</h4><p>validate_decorations.cpp, validate_annotation.cpp</p></div>
+        <div class="card"><h4>光线追踪</h4><p>validate_ray_tracing.cpp, validate_ray_query.cpp</p></div>
+        <div class="card"><h4>扩展指令</h4><p>validate_extensions.cpp, validate_debug.cpp</p></div>
+        <div class="card"><h4>内建变量</h4><p>validate_builtins.cpp, validate_capability.cpp</p></div>
+        <div class="card"><h4>接口/布局</h4><p>validate_interfaces.cpp, validate_layout.cpp</p></div>
+        <div class="card"><h4>网格着色</h4><p>validate_mesh_shading.cpp</p></div>
+    </div>
+
+    <h3>关键类</h3>
+<pre>
+<span class="kw">class</span> <span class="tp">ValidationState_t</span> {
+    <span class="tp">spv_target_env</span> <span class="fn">target_env</span>();
+    <span class="tp">uint32_t</span> <span class="fn">id_bound</span>();
+    <span class="tp">Instruction</span>* <span class="fn">FindDef</span>(<span class="tp">uint32_t</span> id);
+    <span class="tp">Function</span>* <span class="fn">current_function</span>();
+};
+
+<span class="kw">class</span> <span class="tp">Function</span> (<span class="cm">val 版本</span>) {
+    <span class="tp">uint32_t</span> <span class="fn">id</span>();
+    std::vector&lt;<span class="tp">BasicBlock</span>*&gt;&amp; <span class="fn">blocks</span>();
+    <span class="tp">bool</span> <span class="fn">IsCompatibleWithExecutionModel</span>(<span class="tp">SpvExecutionModel</span>);
+};
+
+<span class="kw">class</span> <span class="tp">Construct</span> {
+    <span class="tp">ConstructType</span> <span class="fn">type</span>();  <span class="cm">// Selection/Loop/Case</span>
+    <span class="tp">BasicBlock</span>* <span class="fn">entry_block</span>();
+    <span class="tp">BasicBlock</span>* <span class="fn">merge_block</span>();
+};
+</pre>
+</div>
+
+<!-- Section 7: Linker -->
+<div class="section" id="linker">
+    <h2>&#128279; 7. 链接器模块 (source/link/)</h2>
+    <p>链接器将多个 SPIR-V 二进制模块合并为一个模块。</p>
+
+    <h3>关键 API</h3>
+<pre>
+<span class="tp">spv_result_t</span> <span class="fn">Link</span>(<span class="kw">const</span> <span class="tp">Context</span>&amp; context,
+               <span class="kw">const</span> std::vector&lt;std::vector&lt;<span class="tp">uint32_t</span>&gt;&gt;&amp; binaries,
+               std::vector&lt;<span class="tp">uint32_t</span>&gt;* linked_binary,
+               <span class="kw">const</span> <span class="tp">LinkerOptions</span>&amp; options = <span class="tp">LinkerOptions</span>());
+</pre>
+
+    <h3>LinkerOptions</h3>
+    <table>
+        <tr><th>选项</th><th>默认值</th><th>说明</th></tr>
+        <tr><td>CreateLibrary</td><td>false</td><td>生成库(保留导出) vs 可执行文件</td></tr>
+        <tr><td>VerifyIds</td><td>false</td><td>验证合并后 ID 唯一性</td></tr>
+        <tr><td>AllowPartialLinkage</td><td>false</td><td>允许部分链接</td></tr>
+        <tr><td>UseHighestVersion</td><td>false</td><td>使用最高 SPIR-V 版本</td></tr>
+        <tr><td>AllowPtrTypeMismatch</td><td>false</td><td>允许指针类型不匹配</td></tr>
+    </table>
+</div>
+
+<!-- Section 8: Fuzzer -->
+<div class="section" id="fuzzer">
+    <h2>&#127922; 8. 模糊测试模块 (source/fuzz/)</h2>
+    <p>模糊测试器对 SPIR-V 二进制模块应用语义保持的变换，产生等价模块，用于发现 SPIR-V 处理工具中的 bug。</p>
+
+    <h3>核心类</h3>
+<pre>
+<span class="kw">class</span> <span class="tp">Fuzzer</span> {
+    <span class="tp">Status</span> <span class="fn">Run</span>(<span class="kw">const</span> std::vector&lt;<span class="tp">uint32_t</span>&gt;&amp; binary,
+             <span class="kw">const</span> <span class="tp">FuzzerOptions</span>&amp; options,
+             std::vector&lt;<span class="tp">uint32_t</span>&gt;* transformed_binary,
+             <span class="tp">FuzzerResult</span>* result);
+    <span class="tp">Status</span> <span class="fn">Replay</span>(<span class="kw">const</span> std::vector&lt;<span class="tp">uint32_t</span>&gt;&amp; binary,
+               <span class="kw">const</span> std::vector&lt;<span class="tp">protobufs::Transformation</span>&gt;&amp; transformations,
+               std::vector&lt;<span class="tp">uint32_t</span>&gt;* transformed_binary);
+};
+
+<span class="kw">class</span> <span class="tp">FuzzerPass</span> {
+    <span class="kw">virtual</span> <span class="tp">void</span> <span class="fn">Apply</span>() = <span class="num">0</span>;
+    <span class="tp">FuzzerContext</span>* <span class="fn">GetFuzzerContext</span>();
+    <span class="tp">opt::IRContext</span>* <span class="fn">GetIRContext</span>();
+};
+
+<span class="kw">class</span> <span class="tp">Transformation</span> {
+    <span class="kw">virtual</span> <span class="tp">bool</span> <span class="fn">IsApplicable</span>(<span class="tp">opt::IRContext</span>*, <span class="kw">const</span> <span class="tp">TransformationContext</span>&amp;) <span class="kw">const</span> = <span class="num">0</span>;
+    <span class="kw">virtual</span> <span class="tp">void</span> <span class="fn">Apply</span>(<span class="tp">opt::IRContext</span>*, <span class="tp">TransformationContext</span>*) <span class="kw">const</span> = <span class="num">0</span>;
+};
+</pre>
+
+    <h3>模糊测试 Pass 列表 (部分)</h3>
+    <div class="card-grid">
+        <div class="card"><h4>AddAccessChains</h4><p>添加访问链</p></div>
+        <div class="card"><h4>AddDeadBlocks</h4><p>添加死代码块</p></div>
+        <div class="card"><h4>AddFunctionCalls</h4><p>添加函数调用</p></div>
+        <div class="card"><h4>AddSynonyms</h4><p>添加同义词</p></div>
+        <div class="card"><h4>ConstructComposites</h4><p>构造复合值</p></div>
+        <div class="card"><h4>DonateModules</h4><p>捐赠模块</p></div>
+        <div class="card"><h4>InlineFunctions</h4><p>内联函数</p></div>
+        <div class="card"><h4>ObfuscateConstants</h4><p>混淆常量</p></div>
+        <div class="card"><h4>OutlineFunctions</h4><p>提取函数</p></div>
+        <div class="card"><h4>PermuteBlocks</h4><p>排列基本块</p></div>
+        <div class="card"><h4>SplitBlocks</h4><p>分割基本块</p></div>
+        <div class="card"><h4>MergeBlocks</h4><p>合并基本块</p></div>
+    </div>
+</div>
+
+<!-- Section 9: Reducer -->
+<div class="section" id="reducer">
+    <h2>&#128230; 9. 缩减器模块 (source/reduce/)</h2>
+    <p>缩减器简化/缩小 SPIR-V 模块，同时保持用户定义的"有趣性"条件。</p>
+
+    <h3>核心类</h3>
+<pre>
+<span class="kw">class</span> <span class="tp">Reducer</span> {
+    <span class="tp">Status</span> <span class="fn">Run</span>(<span class="kw">const</span> std::vector&lt;<span class="tp">uint32_t</span>&gt;&amp; binary,
+             <span class="kw">const</span> <span class="tp">spvtools::ReducerOptions</span>&amp; options,
+             std::vector&lt;<span class="tp">uint32_t</span>&gt;* reduced_binary);
+};
+
+<span class="kw">class</span> <span class="tp">ReductionOpportunity</span> {
+    <span class="kw">virtual</span> <span class="tp">bool</span> <span class="fn">PreconditionHolds</span>() = <span class="num">0</span>;
+    <span class="kw">virtual</span> <span class="tp">void</span> <span class="fn">Apply</span>() = <span class="num">0</span>;
+};
+</pre>
+
+    <h3>内置缩减策略</h3>
+    <table>
+        <tr><th>策略</th><th>描述</th></tr>
+        <tr><td>ConditionalBranchToSimpleConditional</td><td>条件分支简化</td></tr>
+        <tr><td>MergeBlocks</td><td>合并基本块</td></tr>
+        <tr><td>OperandToConst</td><td>操作数替换为常量</td></tr>
+        <tr><td>OperandToUndef</td><td>操作数替换为 undef</td></tr>
+        <tr><td>RemoveBlock</td><td>移除基本块</td></tr>
+        <tr><td>RemoveFunction</td><td>移除函数</td></tr>
+        <tr><td>RemoveInstruction</td><td>移除指令</td></tr>
+        <tr><td>RemoveSelection</td><td>移除选择</td></tr>
+        <tr><td>StructuredConstructToBlock</td><td>结构化构造转基本块</td></tr>
+        <tr><td>StructuredLoopToSelection</td><td>结构化循环转选择</td></tr>
+    </table>
+</div>
+
+<!-- Section 10: Diff -->
+<div class="section" id="diff">
+    <h2>&#128260; 10. 差异比较模块 (source/diff/)</h2>
+    <p>差异比较工具对两个 SPIR-V 模块进行 diff 风格的比较。</p>
+
+    <h3>关键文件</h3>
+    <table>
+        <tr><th>文件</th><th>职责</th></tr>
+        <tr><td><code>diff.cpp/h</code></td><td>差异比较核心实现</td></tr>
+        <tr><td><code>lcs.h</code></td><td>最长公共子序列算法</td></tr>
+    </table>
+
+    <h3>关键 API</h3>
+<pre>
+<span class="tp">spv_result_t</span> <span class="fn">Diff</span>(<span class="tp">spv_const_context</span> context,
+                <span class="kw">const</span> std::vector&lt;<span class="tp">uint32_t</span>&gt;&amp; src,
+                <span class="kw">const</span> std::vector&lt;<span class="tp">uint32_t</span>&gt;&amp; dst,
+                <span class="tp">spv_text</span>* diff_text,
+                <span class="tp">uint32_t</span> options);
+</pre>
+</div>
+
+<!-- Section 11: API -->
+<div class="section" id="api">
+    <h2>&#128196; 11. 公共 API 接口</h2>
+
+    <h3>C++ API 主要类</h3>
+    <table>
+        <tr><th>类</th><th>头文件</th><th>描述</th></tr>
+        <tr><td><code>Context</code></td><td>libspirv.hpp</td><td>RAII 包装的 spv_context</td></tr>
+        <tr><td><code>SpirvTools</code></td><td>libspirv.hpp</td><td>汇编/反汇编/验证接口</td></tr>
+        <tr><td><code>Optimizer</code></td><td>optimizer.hpp</td><td>优化器接口</td></tr>
+        <tr><td><code>LinkerOptions</code></td><td>linker.hpp</td><td>链接器选项</td></tr>
+        <tr><td><code>Linter</code></td><td>linter.hpp</td><td>代码检查接口</td></tr>
+        <tr><td><code>ValidatorOptions</code></td><td>libspirv.hpp</td><td>验证器选项</td></tr>
+        <tr><td><code>OptimizerOptions</code></td><td>libspirv.hpp</td><td>优化器选项</td></tr>
+        <tr><td><code>ReducerOptions</code></td><td>libspirv.hpp</td><td>缩减器选项</td></tr>
+        <tr><td><code>FuzzerOptions</code></td><td>libspirv.hpp</td><td>模糊测试选项</td></tr>
+    </table>
+
+    <h3>SpirvTools 类</h3>
+<pre>
+<span class="kw">class</span> <span class="tp">SpirvTools</span> {
+<span class="kw">public</span>:
+    <span class="kw">explicit</span> <span class="fn">SpirvTools</span>(<span class="tp">spv_target_env</span> env);
+    <span class="tp">void</span> <span class="fn">SetMessageConsumer</span>(<span class="tp">MessageConsumer</span> consumer);
+    <span class="tp">bool</span> <span class="fn">Assemble</span>(<span class="kw">const</span> std::string&amp; text, std::vector&lt;<span class="tp">uint32_t</span>&gt;* binary, ...);
+    <span class="tp">bool</span> <span class="fn">Disassemble</span>(<span class="kw">const</span> std::vector&lt;<span class="tp">uint32_t</span>&gt;&amp; binary, std::string* text, ...);
+    <span class="tp">bool</span> <span class="fn">Parse</span>(<span class="kw">const</span> std::vector&lt;<span class="tp">uint32_t</span>&gt;&amp; binary, ...);
+    <span class="tp">bool</span> <span class="fn">Validate</span>(<span class="kw">const</span> std::vector&lt;<span class="tp">uint32_t</span>&gt;&amp; binary) <span class="kw">const</span>;
+};
+</pre>
+
+    <h3>Optimizer 类</h3>
+<pre>
+<span class="kw">class</span> <span class="tp">Optimizer</span> {
+<span class="kw">public</span>:
+    <span class="kw">explicit</span> <span class="fn">Optimizer</span>(<span class="tp">spv_target_env</span> env);
+    <span class="tp">Optimizer</span>&amp; <span class="fn">RegisterPass</span>(<span class="tp">PassToken</span>&amp;&amp; pass);
+    <span class="tp">Optimizer</span>&amp; <span class="fn">RegisterPerformancePasses</span>();
+    <span class="tp">Optimizer</span>&amp; <span class="fn">RegisterSizePasses</span>();
+    <span class="tp">Optimizer</span>&amp; <span class="fn">RegisterLegalizationPasses</span>();
+    <span class="tp">bool</span> <span class="fn">Run</span>(<span class="kw">const</span> <span class="tp">uint32_t</span>* binary, <span class="tp">size_t</span> size,
+             std::vector&lt;<span class="tp">uint32_t</span>&gt;* optimized_binary) <span class="kw">const</span>;
+};
+</pre>
+</div>
+
+<!-- Section 12: Tools -->
+<div class="section" id="tools">
+    <h2>&#128296; 12. 命令行工具</h2>
+    <table>
+        <tr><th>工具</th><th>路径</th><th>描述</th></tr>
+        <tr><td><code>spirv-as</code></td><td>tools/as/</td><td>汇编器: 文本 &rarr; 二进制</td></tr>
+        <tr><td><code>spirv-dis</code></td><td>tools/dis/</td><td>反汇编器: 二进制 &rarr; 文本</td></tr>
+        <tr><td><code>spirv-val</code></td><td>tools/val/</td><td>验证器</td></tr>
+        <tr><td><code>spirv-opt</code></td><td>tools/opt/</td><td>优化器</td></tr>
+        <tr><td><code>spirv-link</code></td><td>tools/link/</td><td>链接器</td></tr>
+        <tr><td><code>spirv-cfg</code></td><td>tools/cfg/</td><td>控制流图导出 (GraphViz)</td></tr>
+        <tr><td><code>spirv-fuzz</code></td><td>tools/fuzz/</td><td>模糊测试器</td></tr>
+        <tr><td><code>spirv-reduce</code></td><td>tools/reduce/</td><td>缩减器</td></tr>
+        <tr><td><code>spirv-diff</code></td><td>tools/diff/</td><td>差异比较</td></tr>
+        <tr><td><code>spirv-lint</code></td><td>tools/lint/</td><td>代码检查</td></tr>
+        <tr><td><code>spirv-objdump</code></td><td>tools/objdump/</td><td>对象转储</td></tr>
+    </table>
+
+    <h3>常用命令</h3>
+<pre>
+<span class="cm"># 汇编</span>
+spirv-as input.spvasm -o output.spv
+
+<span class="cm"># 反汇编</span>
+spirv-dis input.spv -o output.spvasm
+
+<span class="cm"># 验证</span>
+spirv-val input.spv
+
+<span class="cm"># 优化 (性能)</span>
+spirv-opt -O input.spv -o output.spv
+
+<span class="cm"># 优化 (大小)</span>
+spirv-opt -Os input.spv -o output.spv
+
+<span class="cm"># 链接</span>
+spirv-link a.spv b.spv -o linked.spv
+
+<span class="cm"># 控制流图</span>
+spirv-cfg input.spv -o graph.dot
+
+<span class="cm"># 差异比较</span>
+spirv-diff src.spv dst.spv
+</pre>
+</div>
+
+<!-- Section 13: Dependencies -->
+<div class="section" id="deps">
+    <h2>&#128736; 13. 模块间依赖关系</h2>
+
+    <div class="arch-diagram">
+                    ┌──────────────────┐
+                    │    命令行工具     │
+                    │ (spirv-as, etc.) │
+                    └────────┬─────────┘
+                             │
+              ┌──────────────┼──────────────┐
+              │              │              │
+    ┌─────────▼──────┐ ┌────▼─────┐ ┌──────▼──────┐
+    │ libSPIRV-Tools │ │ Optimizer│ │   Linker    │
+    │   (核心库)     │ │ (优化库)  │ │  (链接库)   │
+    └────────┬───────┘ └────┬─────┘ └──────┬──────┘
+             │              │              │
+             │         ┌────▼─────┐        │
+             │         │libSPIRV  │◄───────┘
+             │         │ -Tools   │
+             │         └──────────┘
+             │
+    ┌────────▼───────────────────────────────────────┐
+    │              SPIRV-Headers                      │
+    │  (语法 JSON 文件, 枚举定义, 头文件)              │
+    └────────────────────────────────────────────────┘
+
+    扩展模块:
+    Fuzzer ──▶ Reducer ──▶ Diff
+       │           │          │
+       ▼           ▼          ▼
+    ┌─────────────────────────────────────┐
+    │        libSPIRV-Tools-opt           │
+    └─────────────────┬───────────────────┘
+                      │
+                      ▼
+    ┌─────────────────────────────────────┐
+    │        libSPIRV-Tools               │
+    └─────────────────────────────────────┘
+    </div>
+
+    <h3>依赖关系说明</h3>
+    <table>
+        <tr><th>库</th><th>依赖</th></tr>
+        <tr><td><strong>libSPIRV-Tools</strong> (核心库)</td><td>仅依赖 SPIRV-Headers</td></tr>
+        <tr><td><strong>libSPIRV-Tools-opt</strong> (优化器库)</td><td>依赖 libSPIRV-Tools</td></tr>
+        <tr><td><strong>libSPIRV-Tools-link</strong> (链接器库)</td><td>依赖 libSPIRV-Tools-opt 和 libSPIRV-Tools</td></tr>
+        <tr><td><strong>Fuzzer</strong></td><td>依赖 libSPIRV-Tools-opt + protobuf</td></tr>
+        <tr><td><strong>Reducer</strong></td><td>依赖 libSPIRV-Tools-opt</td></tr>
+        <tr><td><strong>Diff</strong></td><td>依赖 libSPIRV-Tools-opt</td></tr>
+        <tr><td><strong>所有命令行工具</strong></td><td>依赖对应的库</td></tr>
+    </table>
+</div>
+
+<!-- Section 14: Testing -->
+<div class="section">
+    <h2>&#129514; 14. 测试体系</h2>
+
+    <h3>测试框架</h3>
+    <p><strong>googletest</strong>: C++ 单元测试框架 &nbsp;|&nbsp; <strong>Effcee</strong>: 状态匹配测试 (用于优化器输出验证)</p>
+
+    <h3>测试目录</h3>
+    <table>
+        <tr><th>目录</th><th>内容</th><th>测试文件数</th></tr>
+        <tr><td>test/ (根)</td><td>核心库测试 (汇编/反汇编/解析等)</td><td>~50+</td></tr>
+        <tr><td>test/opt/</td><td>优化器测试</td><td>~80+</td></tr>
+        <tr><td>test/val/</td><td>验证器测试</td><td>~50+</td></tr>
+        <tr><td>test/fuzz/</td><td>模糊测试器测试</td><td>~60+</td></tr>
+        <tr><td>test/reduce/</td><td>缩减器测试</td><td>~15+</td></tr>
+        <tr><td>test/link/</td><td>链接器测试</td><td>~10+</td></tr>
+        <tr><td>test/diff/</td><td>差异比较测试</td><td>~5+</td></tr>
+        <tr><td>test/lint/</td><td>代码检查测试</td><td>~2+</td></tr>
+        <tr><td>test/util/</td><td>工具库测试</td><td>~8+</td></tr>
+    </table>
+
+    <h3>运行测试</h3>
+<pre>
+<span class="cm"># CMake</span>
+ctest -j$(nproc)
+ctest -R <span class="st">'spirv-tools-test_opt'</span>
+
+<span class="cm"># Bazel</span>
+bazel test --cxxopt=-std=c++17 :all
+</pre>
+</div>
+
+</main>
+
+<footer>
+    <p>基于 SPIRV-Tools v2026.2 源码分析生成 | 最后更新: 2026-05-30</p>
+    <p><a href="https://github.com/KhronosGroup/SPIRV-Tools">GitHub</a> | <a href="https://www.khronos.org/registry/spir-v/">SPIR-V Registry</a></p>
+</footer>
+
+</body>
+</html>
