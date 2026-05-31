@@ -409,7 +409,7 @@ C:\path\to\dist\windows-x86_64\spirv-val.exe your_shader.spv
 ```
 4. 或将目录加入 PATH 环境变量后直接使用工具名
 
-> **注意**: Windows 版本通过 MinGW 交叉编译生成，运行时可能需要 `libgcc_s_seh-1.dll`、`libstdc++-6.dll`、`libwinpthread-1.dll` 等运行时库。如果缺少 DLL，可将 MinGW 的 `bin` 目录加入 PATH，或将所需 DLL 复制到工具同目录。
+> **好消息**: Windows 版本通过 MinGW 交叉编译生成，已将运行时库静态链接到可执行文件中。工具仅依赖 Windows 系统自带的 `KERNEL32.dll` 和 `msvcrt.dll`，**无需额外 DLL，可直接运行**。
 
 ---
 
